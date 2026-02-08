@@ -20,6 +20,9 @@ export default function AdminLayout({
             <Link href="/admin/queue" className="text-sm text-slate-300 hover:text-white">
               Queue
             </Link>
+            <Link href="/admin/deploy" className="text-sm text-slate-300 hover:text-white">
+              Deploy
+            </Link>
             <Link href="/admin/changes" className="text-sm text-slate-300 hover:text-white">
               Changes
             </Link>

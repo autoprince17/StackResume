@@ -159,7 +159,7 @@ vercel --prod
 
 ## Deployment Pipeline
 
-The deployment pipeline runs on a cron schedule:
+The deployment pipeline processes approved submissions:
 
 1. Admin approves submission
 2. Student status changes to `approved`
@@ -170,21 +170,36 @@ The deployment pipeline runs on a cron schedule:
 7. Subdomain assigned
 8. Student status changes to `deployed`
 
-### Cron Job
+### Deployment Options
 
-Set up a cron job to hit `/api/deploy` with the `CRON_SECRET`:
-
-```bash
-# Vercel Cron (vercel.json)
+**Option 1: Daily Cron (Vercel Free Tier)**
+- Runs automatically once per day at 2 AM UTC
+- Configure in `vercel.json`:
+```json
 {
   "crons": [
     {
       "path": "/api/deploy",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
 ```
+
+**Option 2: Manual Deployment (Recommended for Free Tier)**
+- Use the "Deploy" page in admin dashboard
+- Click "Run Deployment Queue Now" button
+- Instant deployment after approving submissions
+
+**Option 3: External Cron Service (Free)**
+- Use https://cron-job.org (free tier)
+- Configure to ping: `https://your-app.vercel.app/api/deploy?secret=YOUR_CRON_SECRET`
+- Set interval to every 10 minutes
+
+**Option 4: Vercel Pro ($20/month)**
+- Unlimited cron jobs
+- Run every 10 minutes automatically
+- No manual intervention needed
 
 ## Admin Access
 
