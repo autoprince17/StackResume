@@ -108,32 +108,18 @@ export default function CheckoutPage() {
   const [isValid, setIsValid] = useState(true)
 
   useEffect(() => {
-    // Get payment intent ID and tier from session storage
-    const paymentIntentId = sessionStorage.getItem('paymentIntentId')
+    // Read payment details stored by the pricing page
+    const storedClientSecret = sessionStorage.getItem('clientSecret')
+    const storedPaymentIntentId = sessionStorage.getItem('paymentIntentId')
     const selectedTier = sessionStorage.getItem('selectedTier')
 
-    if (!paymentIntentId || !selectedTier) {
+    if (!storedClientSecret || !storedPaymentIntentId || !selectedTier) {
       setIsValid(false)
       return
     }
 
     setTier(selectedTier)
-
-    // Fetch client secret from your backend
-    fetch('/api/create-payment-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier: selectedTier }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret)
-        } else {
-          setIsValid(false)
-        }
-      })
-      .catch(() => setIsValid(false))
+    setClientSecret(storedClientSecret)
   }, [router])
 
   if (!isValid) {

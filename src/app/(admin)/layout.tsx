@@ -26,6 +26,9 @@ export default function AdminLayout({
             <Link href="/admin/changes" className="text-sm text-slate-300 hover:text-white">
               Changes
             </Link>
+            <Link href="/admin/analytics" className="text-sm text-slate-300 hover:text-white">
+              Analytics
+            </Link>
             <form action={signOut}>
               <button type="submit" className="text-sm text-slate-300 hover:text-white">
                 Sign Out

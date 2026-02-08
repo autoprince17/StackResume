@@ -2,13 +2,183 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, Clock, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { Check, Clock, AlertCircle, ExternalLink, Loader2, FileEdit, Repeat, Paintbrush, Link2, Send } from 'lucide-react'
+
+type ChangeRequestType = 'content_edit' | 'template_swap' | 'redesign' | 'link_update'
+
+const changeTypes: { value: ChangeRequestType; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: 'content_edit', label: 'Content Edit', description: 'Fix typos, update text, change descriptions', icon: <FileEdit className="w-4 h-4" /> },
+  { value: 'link_update', label: 'Link Update', description: 'Update GitHub, LinkedIn, or project URLs', icon: <Link2 className="w-4 h-4" /> },
+  { value: 'template_swap', label: 'Template Swap', description: 'Switch to a different template design', icon: <Repeat className="w-4 h-4" /> },
+  { value: 'redesign', label: 'Redesign', description: 'Full design overhaul with new layout', icon: <Paintbrush className="w-4 h-4" /> },
+]
+
+function ChangeRequestForm({ studentId, onSubmitted }: { studentId: string; onSubmitted: () => void }) {
+  const [type, setType] = useState<ChangeRequestType>('content_edit')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!description.trim()) return
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/change-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, type, description }),
+      })
+      const data = await res.json()
+
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setSuccess(true)
+        setDescription('')
+        onSubmitted()
+        setTimeout(() => setSuccess(false), 3000)
+      }
+    } catch {
+      setError('Failed to submit request')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="label">Request Type</label>
+        <div className="grid grid-cols-2 gap-2">
+          {changeTypes.map((ct) => (
+            <button
+              key={ct.value}
+              type="button"
+              onClick={() => setType(ct.value)}
+              className={`p-3 rounded-lg border text-left text-sm transition-colors ${
+                type === ct.value
+                  ? 'border-slate-900 bg-slate-50'
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                {ct.icon}
+                <span className="font-medium text-slate-900">{ct.label}</span>
+              </div>
+              <p className="text-xs text-slate-500">{ct.description}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Description</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="input min-h-[100px]"
+          placeholder="Describe what you want changed..."
+          required
+        />
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-600">Change request submitted. We will review it shortly.</p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={submitting || !description.trim()}
+        className="btn btn-primary w-full"
+      >
+        {submitting ? (
+          'Submitting...'
+        ) : (
+          <>
+            <Send className="w-4 h-4 mr-2" />
+            Submit Request
+          </>
+        )}
+      </button>
+    </form>
+  )
+}
+
+function ChangeRequestsList({ studentId }: { studentId: string }) {
+  const [requests, setRequests] = useState<any[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  const loadRequests = async () => {
+    try {
+      const res = await fetch(`/api/change-requests?studentId=${studentId}`)
+      const data = await res.json()
+      setRequests(data.requests || [])
+    } catch {
+      // Silently fail
+    } finally {
+      setLoaded(true)
+    }
+  }
+
+  if (!loaded) {
+    loadRequests()
+    return null
+  }
+
+  if (requests.length === 0) return null
+
+  const statusColors: Record<string, string> = {
+    pending: 'bg-amber-100 text-amber-700',
+    approved: 'bg-blue-100 text-blue-700',
+    completed: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+  }
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-8">
+      <h3 className="font-semibold text-slate-900 mb-4">Previous Requests</h3>
+      <div className="space-y-3">
+        {requests.map((req: any) => (
+          <div key={req.id} className="p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-slate-900 capitalize">
+                {req.type.replace('_', ' ')}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[req.status] || 'bg-slate-100 text-slate-700'}`}>
+                {req.status}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600">{req.description}</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {new Date(req.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function StudentDashboardPage() {
   const [email, setEmail] = useState('')
   const [studentData, setStudentData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showChangeForm, setShowChangeForm] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const lookupStudent = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -202,6 +372,33 @@ export default function StudentDashboardPage() {
                 </a>
               </p>
             </div>
+
+            {/* Change Request Section */}
+            {studentData.student.status === 'deployed' && (
+              <div className="bg-white rounded-lg border border-slate-200 p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-slate-900">Request Changes</h3>
+                  <button
+                    onClick={() => setShowChangeForm(!showChangeForm)}
+                    className="text-sm text-slate-600 hover:text-slate-900"
+                  >
+                    {showChangeForm ? 'Cancel' : 'New Request'}
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600 mb-4">
+                  Need to update your portfolio? Submit a change request and we will handle it.
+                </p>
+                {showChangeForm && (
+                  <ChangeRequestForm
+                    studentId={studentData.student.id}
+                    onSubmitted={() => setRefreshKey((k: number) => k + 1)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Previous Change Requests */}
+            <ChangeRequestsList key={refreshKey} studentId={studentData.student.id} />
           </div>
         )}
       </div>

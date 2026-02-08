@@ -48,10 +48,32 @@ export async function POST(req: NextRequest) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         console.log(`PaymentIntent ${paymentIntent.id} succeeded`)
-        
-        // You can add logic here to update student records if needed
-        // For example, mark a payment as verified in your database
-        // This is useful for handling async payment methods
+
+        // Find student by payment intent ID and mark payment as verified
+        const { data: paidStudent } = await (getSupabaseAdmin() as any)
+          .from('students')
+          .select('id, status')
+          .eq('stripe_payment_intent_id', paymentIntent.id)
+          .single()
+
+        if (paidStudent) {
+          // Update customer ID if available
+          const updates: Record<string, string | null> = {}
+          if (paymentIntent.customer) {
+            updates.stripe_customer_id = paymentIntent.customer as string
+          }
+          // Clear any previous error messages related to payment
+          updates.error_message = null
+
+          if (Object.keys(updates).length > 0) {
+            await (getSupabaseAdmin() as any)
+              .from('students')
+              .update(updates)
+              .eq('id', paidStudent.id)
+          }
+
+          console.log(`Student ${paidStudent.id} payment verified via webhook`)
+        }
         
         break
       }
@@ -91,17 +113,34 @@ export async function POST(req: NextRequest) {
         const charge = event.data.object as Stripe.Charge
         console.log(`Charge ${charge.id} was refunded`)
         
-        // Optional: Handle refunds (e.g., mark student as refunded, disable portfolio)
         if (charge.payment_intent) {
-          const { data: student } = await (getSupabaseAdmin() as any)
+          const { data: refundedStudent } = await (getSupabaseAdmin() as any)
             .from('students')
-            .select('*')
+            .select('id, status')
             .eq('stripe_payment_intent_id', charge.payment_intent)
             .single()
 
-          if (student) {
-            // You might want to deactivate the portfolio or mark as refunded
-            console.log(`Student ${student.id} payment was refunded`)
+          if (refundedStudent) {
+            // Mark student as refunded/errored
+            await (getSupabaseAdmin() as any)
+              .from('students')
+              .update({ 
+                status: 'error',
+                error_message: 'Payment refunded'
+              })
+              .eq('id', refundedStudent.id)
+
+            // Mark any queued/processing deployments as failed
+            await (getSupabaseAdmin() as any)
+              .from('deployment_queue')
+              .update({ 
+                status: 'failed',
+                error_message: 'Payment refunded — deployment cancelled'
+              })
+              .eq('student_id', refundedStudent.id)
+              .in('status', ['queued', 'processing'])
+
+            console.log(`Student ${refundedStudent.id} marked as refunded, deployments cancelled`)
           }
         }
         

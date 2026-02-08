@@ -2,6 +2,24 @@
 
 import { getSupabaseAdmin } from '@/lib/db/admin'
 import { validateSubmissionQuality } from '@/lib/validation'
+import Stripe from 'stripe'
+import { 
+  sendSubmissionApproved, 
+  sendSubmissionRejected, 
+  sendEditsRequested 
+} from '@/lib/email'
+
+// Lazy initialization of Stripe client
+let stripe: Stripe | null = null
+
+function getStripe() {
+  if (!stripe) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-01-28.clover',
+    })
+  }
+  return stripe
+}
 
 export async function getPendingSubmissions() {
   const { data, error } = await getSupabaseAdmin()
@@ -134,6 +152,13 @@ export async function getStudentDetails(studentId: string): Promise<{
 
 export async function approveSubmission(studentId: string) {
   try {
+    // Get student info for email
+    const { data: studentData } = await getSupabaseAdmin()
+      .from('students')
+      .select('name, email')
+      .eq('id', studentId)
+      .single()
+
     // Update student status
     const { error: updateError } = await (getSupabaseAdmin() as any)
       .from('students')
@@ -153,6 +178,14 @@ export async function approveSubmission(studentId: string) {
 
     if (queueError) throw queueError
 
+    // Send email notification
+    if (studentData) {
+      await sendSubmissionApproved(
+        (studentData as any).email,
+        (studentData as any).name
+      )
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Failed to approve submission:', error)
@@ -169,32 +202,55 @@ export async function rejectSubmission(
   shouldRefund: boolean = false
 ) {
   try {
-    // Get student details for refund if needed
-    if (shouldRefund) {
-      const { data: student } = await getSupabaseAdmin()
-        .from('students')
-        .select('stripe_payment_intent_id')
-        .eq('id', studentId)
-        .single()
+    // Get student details for refund and email
+    const { data: studentInfo } = await getSupabaseAdmin()
+      .from('students')
+      .select('name, email, stripe_payment_intent_id')
+      .eq('id', studentId)
+      .single()
 
-      if ((student as any)?.stripe_payment_intent_id) {
-        // Process refund through Stripe (implementation depends on your refund policy)
-        // This is a placeholder - actual refund logic would go here
-        console.log(`Processing refund for ${studentId}`)
+    if (shouldRefund && (studentInfo as any)?.stripe_payment_intent_id) {
+      try {
+        await getStripe().refunds.create({
+          payment_intent: (studentInfo as any).stripe_payment_intent_id,
+        })
+        console.log(`Refund processed for student ${studentId}`)
+      } catch (refundError) {
+        console.error(`Refund failed for student ${studentId}:`, refundError)
+        // Still reject even if refund fails — admin can retry manually via Stripe dashboard
       }
     }
 
-    // Update student status to indicate rejection
-    const { error } = await getSupabaseAdmin()
+    // Update student status with rejection reason
+    const { error } = await (getSupabaseAdmin() as any)
       .from('students')
-      // @ts-ignore
       .update({ 
         status: 'error',
-        // You might want to add a rejection_reason field to the schema
+        error_message: `Rejected: ${reason}${shouldRefund ? ' (refund issued)' : ''}`,
       })
       .eq('id', studentId)
 
     if (error) throw error
+
+    // Cancel any queued deployments
+    await (getSupabaseAdmin() as any)
+      .from('deployment_queue')
+      .update({ 
+        status: 'failed',
+        error_message: 'Submission rejected'
+      })
+      .eq('student_id', studentId)
+      .in('status', ['queued', 'processing'])
+
+    // Send rejection email
+    if (studentInfo) {
+      await sendSubmissionRejected(
+        (studentInfo as any).email,
+        (studentInfo as any).name,
+        reason,
+        shouldRefund
+      )
+    }
 
     return { success: true }
   } catch (error) {
@@ -211,12 +267,47 @@ export async function requestEdits(
   editRequests: string[]
 ) {
   try {
-    // This would typically trigger an email to the student
-    // For now, we'll just log it - email implementation depends on your email provider
-    console.log(`Edit requests for ${studentId}:`, editRequests)
+    const description = editRequests.join('\n• ')
 
-    // You might want to track edit requests in a separate table
-    // or add them as a field to the students table
+    // Get student info for email
+    const { data: studentInfo } = await getSupabaseAdmin()
+      .from('students')
+      .select('name, email')
+      .eq('id', studentId)
+      .single()
+
+    // Create a change_request record for each set of edits
+    const { error: crError } = await (getSupabaseAdmin() as any)
+      .from('change_requests')
+      .insert({
+        student_id: studentId,
+        type: 'content_edit',
+        description: `Admin requested edits:\n• ${description}`,
+        status: 'approved', // Pre-approved since admin is requesting
+        is_paid: false,
+        amount: 0,
+      })
+
+    if (crError) throw crError
+
+    // Update student status to signal edits are needed
+    const { error: updateError } = await (getSupabaseAdmin() as any)
+      .from('students')
+      .update({ 
+        error_message: `Edits requested: ${editRequests.join('; ')}`,
+      })
+      .eq('id', studentId)
+
+    if (updateError) throw updateError
+
+    // Send email notification
+    if (studentInfo) {
+      await sendEditsRequested(
+        (studentInfo as any).email,
+        (studentInfo as any).name,
+        editRequests
+      )
+    }
 
     return { success: true }
   } catch (error) {
@@ -282,6 +373,33 @@ export async function updateChangeRequestStatus(
       success: false, 
       error: 'Failed to update change request' 
     }
+  }
+}
+
+export async function updateCustomDomain(
+  studentId: string,
+  customDomain: string | null
+) {
+  try {
+    // Validate domain format if provided
+    if (customDomain) {
+      const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/
+      if (!domainRegex.test(customDomain)) {
+        return { success: false, error: 'Invalid domain format' }
+      }
+    }
+
+    const { error } = await (getSupabaseAdmin() as any)
+      .from('students')
+      .update({ custom_domain: customDomain })
+      .eq('id', studentId)
+
+    if (error) throw error
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update custom domain:', error)
+    return { success: false, error: 'Failed to update custom domain' }
   }
 }
 

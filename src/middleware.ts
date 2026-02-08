@@ -30,9 +30,7 @@ export async function middleware(request: NextRequest) {
   )
 
   // Protect admin routes
-  if (request.nextUrl.pathname.startsWith('/admin') || 
-      request.nextUrl.pathname.startsWith('/submissions') ||
-      request.nextUrl.pathname.startsWith('/deploy')) {
+  if (request.nextUrl.pathname.startsWith('/admin')) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -70,8 +68,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/submissions/:path*',
-    '/deploy/:path*',
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getStudentDetails, approveSubmission, rejectSubmission } from '@/lib/actions/admin'
+import { getStudentDetails, approveSubmission, rejectSubmission, updateCustomDomain } from '@/lib/actions/admin'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 import { ArrowLeft, Check, X, ExternalLink, AlertCircle } from 'lucide-react'
@@ -279,6 +279,50 @@ export default async function SubmissionDetailPage({
               )}
             </div>
           </Card>
+
+          {/* Custom Domain (Professional/Flagship only) */}
+          {(student.tier === 'professional' || student.tier === 'flagship') && (
+            <Card className="p-6">
+              <h3 className="font-semibold text-slate-900 mb-4">Custom Domain</h3>
+              {student.custom_domain ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-600">
+                    Current domain: <strong className="text-slate-900">{student.custom_domain}</strong>
+                  </p>
+                  <form action={async () => {
+                    'use server'
+                    await updateCustomDomain(id, null)
+                  }}>
+                    <button type="submit" className="text-sm text-red-600 hover:underline">
+                      Remove domain
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <form action={async (formData: FormData) => {
+                  'use server'
+                  const domain = formData.get('domain') as string
+                  if (domain) {
+                    await updateCustomDomain(id, domain)
+                  }
+                }}>
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-600">No custom domain configured</p>
+                    <input
+                      type="text"
+                      name="domain"
+                      placeholder="example.com"
+                      className="input text-sm"
+                      required
+                    />
+                    <button type="submit" className="btn btn-secondary w-full text-sm">
+                      Set Domain
+                    </button>
+                  </div>
+                </form>
+              )}
+            </Card>
+          )}
         </div>
       </div>
     </div>
