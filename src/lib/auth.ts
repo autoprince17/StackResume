@@ -15,16 +15,19 @@ export async function signInWithEmail(email: string, password: string) {
     return { success: false, error: error.message }
   }
 
-  // Check if user is an admin
-  const { data: adminUser } = await getSupabaseAdmin()
+  // Check if user is an admin (check by ID, not email)
+  const { data: adminUser, error: adminError } = await getSupabaseAdmin()
     .from('admin_users')
     .select('*')
-    .eq('email', email)
+    .eq('id', data.user.id)
     .single()
 
-  if (!adminUser) {
+  if (!adminUser || adminError) {
     await supabase.auth.signOut()
-    return { success: false, error: 'Unauthorized access' }
+    return { 
+      success: false, 
+      error: 'Unauthorized access. Your account is not registered as an admin.' 
+    }
   }
 
   return { success: true, user: data.user }
