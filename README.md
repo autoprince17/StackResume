@@ -94,30 +94,23 @@ All templates follow recruiter optimization rules:
 
 ### 1. Environment Variables
 
-Copy `.env.local.example` to `.env.local` and fill in:
+**For Local Development:**
+Copy `.env.local.example` to `.env.local` and fill in the values.
 
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+**For Production (Vercel):**
+Add environment variables in Vercel Dashboard → Settings → Environment Variables:
 
-# Stripe
-STRIPE_SECRET_KEY=
-STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-
-# Vercel
-VERCEL_TOKEN=
-VERCEL_TEAM_ID=
-
-# Optional: AI for resume parsing
-OPENAI_API_KEY=
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-CRON_SECRET=your_random_secret
 ```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+CRON_SECRET=your-random-secret-string
+```
+
+⚠️ **Important**: Do NOT put environment variables in `vercel.json`. Add them directly in the Vercel Dashboard.
 
 ### 2. Database Setup
 
