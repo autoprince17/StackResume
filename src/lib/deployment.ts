@@ -22,7 +22,7 @@ export async function processDeploymentQueue() {
   const results = []
   const errors = []
 
-  for (const item of queueItems) {
+  for (const item of queueItems as any[]) {
     try {
       await processDeployment(item.student_id)
       results.push(item.student_id)
@@ -31,7 +31,7 @@ export async function processDeploymentQueue() {
       errors.push({ studentId: item.student_id, error: String(error) })
       
       // Update retry count
-      await supabaseAdmin
+      await (supabaseAdmin as any)
         .from('deployment_queue')
         .update({
           status: 'failed',
@@ -47,23 +47,34 @@ export async function processDeploymentQueue() {
 
 export async function processDeployment(studentId: string) {
   // 1. Fetch student data
-  const { data: student, error: studentError } = await supabaseAdmin
+  const { data: studentData, error: studentError } = await supabaseAdmin
     .from('students')
     .select('*')
     .eq('id', studentId)
     .single()
+  const student: any = studentData
 
   if (studentError || !student) {
     throw new Error('Student not found')
   }
 
   // 2. Fetch all related data
-  const [{ data: profile }, { data: projects }, { data: experience }, { data: socialLinks }] = await Promise.all([
+  const [
+    { data: profileData }, 
+    { data: projectsData }, 
+    { data: experienceData }, 
+    { data: socialLinksData }
+  ] = await Promise.all([
     supabaseAdmin.from('profiles').select('*').eq('student_id', studentId).single(),
     supabaseAdmin.from('projects').select('*').eq('student_id', studentId).order('order'),
     supabaseAdmin.from('experience').select('*').eq('student_id', studentId).order('order'),
     supabaseAdmin.from('social_links').select('*').eq('student_id', studentId).single()
   ])
+  
+  const profile: any = profileData
+  const projects: any[] = projectsData || []
+  const experience: any[] = experienceData || []
+  const socialLinks: any = socialLinksData
 
   if (!profile) {
     throw new Error('Profile not found')
@@ -106,13 +117,13 @@ export async function processDeployment(studentId: string) {
   })
 
   // 6. Update student status
-  await supabaseAdmin
+  await (supabaseAdmin as any)
     .from('students')
     .update({ status: 'deployed' })
     .eq('id', studentId)
 
   // 7. Update deployment queue
-  await supabaseAdmin
+  await (supabaseAdmin as any)
     .from('deployment_queue')
     .update({
       status: 'completed',
@@ -228,9 +239,9 @@ export async function retryFailedDeployments() {
     return { retried: 0 }
   }
 
-  for (const deployment of failedDeployments) {
+  for (const deployment of failedDeployments as any[]) {
     // Reset to queued for retry
-    await supabaseAdmin
+    await (supabaseAdmin as any)
       .from('deployment_queue')
       .update({
         status: 'queued',

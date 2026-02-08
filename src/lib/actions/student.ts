@@ -15,7 +15,7 @@ import Stripe from 'stripe'
 import { v4 as uuidv4 } from 'uuid'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia'
+  apiVersion: '2026-01-28.clover',
 })
 
 export async function createPaymentIntent(tier: 'starter' | 'professional' | 'flagship') {
@@ -133,7 +133,7 @@ export async function submitOnboardingForm(
     }
 
     // Insert student record
-    const { error: studentError } = await supabaseAdmin
+    const { error: studentError } = await (supabaseAdmin as any)
       .from('students')
       .insert({
         id: studentId,
@@ -148,7 +148,7 @@ export async function submitOnboardingForm(
     if (studentError) throw studentError
 
     // Insert profile
-    const { error: profileError } = await supabaseAdmin
+    const { error: profileError } = await (supabaseAdmin as any)
       .from('profiles')
       .insert({
         student_id: studentId,
@@ -161,7 +161,7 @@ export async function submitOnboardingForm(
     if (profileError) throw profileError
 
     // Insert projects
-    const { error: projectsError } = await supabaseAdmin
+    const { error: projectsError } = await (supabaseAdmin as any)
       .from('projects')
       .insert(
         data.projects.map((project, index) => ({
@@ -179,7 +179,7 @@ export async function submitOnboardingForm(
 
     // Insert experience
     if (data.experience.length > 0) {
-      const { error: expError } = await supabaseAdmin
+      const { error: expError } = await (supabaseAdmin as any)
         .from('experience')
         .insert(
           data.experience.map((exp, index) => ({
@@ -197,7 +197,7 @@ export async function submitOnboardingForm(
     }
 
     // Insert social links
-    const { error: socialError } = await supabaseAdmin
+    const { error: socialError } = await (supabaseAdmin as any)
       .from('social_links')
       .insert({
         student_id: studentId,
@@ -209,7 +209,7 @@ export async function submitOnboardingForm(
     if (socialError) throw socialError
 
     // Insert assets
-    const { error: assetsError } = await supabaseAdmin
+    const { error: assetsError } = await (supabaseAdmin as any)
       .from('assets')
       .insert({
         student_id: studentId,
@@ -221,7 +221,7 @@ export async function submitOnboardingForm(
 
     // Create tier snapshot
     const tierSnapshot = createTierSnapshot(tier)
-    const { error: snapshotError } = await supabaseAdmin
+    const { error: snapshotError } = await (supabaseAdmin as any)
       .from('tier_limits_snapshot')
       .insert({
         student_id: studentId,

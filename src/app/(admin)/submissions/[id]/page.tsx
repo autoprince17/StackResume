@@ -15,7 +15,13 @@ export default async function SubmissionDetailPage({
     notFound()
   }
 
-  const { student, profile, projects, experience, socialLinks, assets, qualityCheck } = details
+  const student: any = details.student
+  const profile: any = details.profile
+  const projects: any[] = details.projects || []
+  const experience: any[] = details.experience || []
+  const socialLinks: any = details.socialLinks
+  const assets: any = details.assets
+  const qualityCheck: { valid: boolean; errors: string[] } = details.qualityCheck
 
   return (
     <div className="space-y-8">

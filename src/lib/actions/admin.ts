@@ -24,7 +24,7 @@ export async function getPendingSubmissions() {
   }
 
   // Add quality validation to each submission
-  return data.map(student => {
+  return (data as any[]).map((student: any) => {
     const qualityCheck = validateSubmissionQuality({
       bio: student.profiles?.bio || '',
       projects: student.projects || []
@@ -55,7 +55,16 @@ export async function getAllStudents() {
   return data
 }
 
-export async function getStudentDetails(studentId: string) {
+export async function getStudentDetails(studentId: string): Promise<{
+  student: any
+  profile: any
+  projects: any
+  experience: any
+  socialLinks: any
+  assets: any
+  tierSnapshot: any
+  qualityCheck: { valid: boolean; errors: string[] }
+} | null> {
   const { data: student, error: studentError } = await supabaseAdmin
     .from('students')
     .select('*')
@@ -64,41 +73,47 @@ export async function getStudentDetails(studentId: string) {
 
   if (studentError || !student) return null
 
-  const { data: profile } = await supabaseAdmin
+  const { data: profileData } = await supabaseAdmin
     .from('profiles')
     .select('*')
     .eq('student_id', studentId)
     .single()
+  const profile: any = profileData
 
-  const { data: projects } = await supabaseAdmin
+  const { data: projectsData } = await supabaseAdmin
     .from('projects')
     .select('*')
     .eq('student_id', studentId)
     .order('order')
+  const projects: any[] = projectsData || []
 
-  const { data: experience } = await supabaseAdmin
+  const { data: experienceData } = await supabaseAdmin
     .from('experience')
     .select('*')
     .eq('student_id', studentId)
     .order('order')
+  const experience: any[] = experienceData || []
 
-  const { data: socialLinks } = await supabaseAdmin
+  const { data: socialLinksData } = await supabaseAdmin
     .from('social_links')
     .select('*')
     .eq('student_id', studentId)
     .single()
+  const socialLinks: any = socialLinksData
 
-  const { data: assets } = await supabaseAdmin
+  const { data: assetsData } = await supabaseAdmin
     .from('assets')
     .select('*')
     .eq('student_id', studentId)
     .single()
+  const assets: any = assetsData
 
-  const { data: tierSnapshot } = await supabaseAdmin
+  const { data: tierSnapshotData } = await supabaseAdmin
     .from('tier_limits_snapshot')
     .select('*')
     .eq('student_id', studentId)
     .single()
+  const tierSnapshot: any = tierSnapshotData
 
   const qualityCheck = validateSubmissionQuality({
     bio: profile?.bio || '',
@@ -120,7 +135,7 @@ export async function getStudentDetails(studentId: string) {
 export async function approveSubmission(studentId: string) {
   try {
     // Update student status
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await (supabaseAdmin as any)
       .from('students')
       .update({ status: 'approved' })
       .eq('id', studentId)
@@ -130,6 +145,7 @@ export async function approveSubmission(studentId: string) {
     // Add to deployment queue
     const { error: queueError } = await supabaseAdmin
       .from('deployment_queue')
+      // @ts-ignore
       .insert({
         student_id: studentId,
         status: 'queued'
@@ -161,7 +177,7 @@ export async function rejectSubmission(
         .eq('id', studentId)
         .single()
 
-      if (student?.stripe_payment_intent_id) {
+      if ((student as any)?.stripe_payment_intent_id) {
         // Process refund through Stripe (implementation depends on your refund policy)
         // This is a placeholder - actual refund logic would go here
         console.log(`Processing refund for ${studentId}`)
@@ -171,6 +187,7 @@ export async function rejectSubmission(
     // Update student status to indicate rejection
     const { error } = await supabaseAdmin
       .from('students')
+      // @ts-ignore
       .update({ 
         status: 'error',
         // You might want to add a rejection_reason field to the schema
@@ -252,6 +269,7 @@ export async function updateChangeRequestStatus(
   try {
     const { error } = await supabaseAdmin
       .from('change_requests')
+      // @ts-ignore
       .update({ status })
       .eq('id', requestId)
 

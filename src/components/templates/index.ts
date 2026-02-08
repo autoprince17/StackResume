@@ -1,7 +1,9 @@
-import { PortfolioData } from './utils'
+import type { PortfolioData } from './utils'
 import { DeveloperTemplate } from './developer/DeveloperTemplate'
 import { DataScientistTemplate } from './data-scientist/DataScientistTemplate'
 import { DevOpsTemplate } from './devops/DevOpsTemplate'
+
+export type { PortfolioData }
 
 export type TemplateType = 'developer' | 'data-scientist' | 'devops'
 
