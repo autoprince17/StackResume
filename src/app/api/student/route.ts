@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/db/admin'
+import { getSupabaseAdmin } from '@/lib/db/admin'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data: student, error } = await supabaseAdmin
+    const { data: student, error } = await getSupabaseAdmin()
       .from('students')
       .select('*')
       .eq('email', email)

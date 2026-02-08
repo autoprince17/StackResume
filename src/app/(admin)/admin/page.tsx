@@ -2,6 +2,8 @@ import { getStats, getPendingSubmissions, getDeploymentQueue } from '@/lib/actio
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminDashboard() {
   const stats = await getStats()
   const pendingSubmissions = await getPendingSubmissions()

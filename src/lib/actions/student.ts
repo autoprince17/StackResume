@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/db/server'
-import { supabaseAdmin } from '@/lib/db/admin'
+import { getSupabaseAdmin } from '@/lib/db/admin'
 import { 
   OnboardingFormData, 
   validateSubmissionQuality 
@@ -111,13 +111,13 @@ export async function submitOnboardingForm(
     let resumeUrl: string | null = null
 
     if (files.profilePhoto) {
-      const { data: uploadData, error } = await supabaseAdmin
+      const { data: uploadData, error } = await getSupabaseAdmin()
         .storage
         .from('student-assets')
         .upload(`${studentId}/profile-photo`, files.profilePhoto)
       
       if (!error) {
-        const { data: publicUrl } = supabaseAdmin
+        const { data: publicUrl } = getSupabaseAdmin()
           .storage
           .from('student-assets')
           .getPublicUrl(uploadData.path)
@@ -126,13 +126,13 @@ export async function submitOnboardingForm(
     }
 
     if (files.resume) {
-      const { data: uploadData, error } = await supabaseAdmin
+      const { data: uploadData, error } = await getSupabaseAdmin()
         .storage
         .from('student-assets')
         .upload(`${studentId}/resume`, files.resume)
       
       if (!error) {
-        const { data: publicUrl } = supabaseAdmin
+        const { data: publicUrl } = getSupabaseAdmin()
           .storage
           .from('student-assets')
           .getPublicUrl(uploadData.path)
@@ -141,7 +141,7 @@ export async function submitOnboardingForm(
     }
 
     // Insert student record
-    const { error: studentError } = await (supabaseAdmin as any)
+    const { error: studentError } = await (getSupabaseAdmin() as any)
       .from('students')
       .insert({
         id: studentId,
@@ -156,7 +156,7 @@ export async function submitOnboardingForm(
     if (studentError) throw studentError
 
     // Insert profile
-    const { error: profileError } = await (supabaseAdmin as any)
+    const { error: profileError } = await (getSupabaseAdmin() as any)
       .from('profiles')
       .insert({
         student_id: studentId,
@@ -169,7 +169,7 @@ export async function submitOnboardingForm(
     if (profileError) throw profileError
 
     // Insert projects
-    const { error: projectsError } = await (supabaseAdmin as any)
+    const { error: projectsError } = await (getSupabaseAdmin() as any)
       .from('projects')
       .insert(
         data.projects.map((project, index) => ({
@@ -187,7 +187,7 @@ export async function submitOnboardingForm(
 
     // Insert experience
     if (data.experience.length > 0) {
-      const { error: expError } = await (supabaseAdmin as any)
+      const { error: expError } = await (getSupabaseAdmin() as any)
         .from('experience')
         .insert(
           data.experience.map((exp, index) => ({
@@ -205,7 +205,7 @@ export async function submitOnboardingForm(
     }
 
     // Insert social links
-    const { error: socialError } = await (supabaseAdmin as any)
+    const { error: socialError } = await (getSupabaseAdmin() as any)
       .from('social_links')
       .insert({
         student_id: studentId,
@@ -217,7 +217,7 @@ export async function submitOnboardingForm(
     if (socialError) throw socialError
 
     // Insert assets
-    const { error: assetsError } = await (supabaseAdmin as any)
+    const { error: assetsError } = await (getSupabaseAdmin() as any)
       .from('assets')
       .insert({
         student_id: studentId,
@@ -229,7 +229,7 @@ export async function submitOnboardingForm(
 
     // Create tier snapshot
     const tierSnapshot = createTierSnapshot(tier)
-    const { error: snapshotError } = await (supabaseAdmin as any)
+    const { error: snapshotError } = await (getSupabaseAdmin() as any)
       .from('tier_limits_snapshot')
       .insert({
         student_id: studentId,
@@ -254,7 +254,7 @@ export async function submitOnboardingForm(
 }
 
 export async function getStudentByEmail(email: string) {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('students')
     .select('*')
     .eq('email', email)
@@ -265,7 +265,7 @@ export async function getStudentByEmail(email: string) {
 }
 
 export async function getStudentDashboard(studentId: string) {
-  const { data: student, error: studentError } = await supabaseAdmin
+  const { data: student, error: studentError } = await getSupabaseAdmin()
     .from('students')
     .select('*')
     .eq('id', studentId)
@@ -273,19 +273,19 @@ export async function getStudentDashboard(studentId: string) {
 
   if (studentError || !student) return null
 
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from('profiles')
     .select('*')
     .eq('student_id', studentId)
     .single()
 
-  const { data: projects } = await supabaseAdmin
+  const { data: projects } = await getSupabaseAdmin()
     .from('projects')
     .select('*')
     .eq('student_id', studentId)
     .order('order')
 
-  const { data: deployment } = await supabaseAdmin
+  const { data: deployment } = await getSupabaseAdmin()
     .from('deployment_queue')
     .select('*')
     .eq('student_id', studentId)

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/db/admin'
+import { getSupabaseAdmin } from '@/lib/db/admin'
 import { generatePortfolioHTML, selectTemplate, PortfolioData } from '@/components/templates'
 
 interface DeploymentConfig {
@@ -8,7 +8,7 @@ interface DeploymentConfig {
 
 export async function processDeploymentQueue() {
   // Get pending deployments
-  const { data: queueItems, error } = await supabaseAdmin
+  const { data: queueItems, error } = await getSupabaseAdmin()
     .from('deployment_queue')
     .select('*, students(*)')
     .eq('status', 'queued')
@@ -31,7 +31,7 @@ export async function processDeploymentQueue() {
       errors.push({ studentId: item.student_id, error: String(error) })
       
       // Update retry count
-      await (supabaseAdmin as any)
+      await (getSupabaseAdmin() as any)
         .from('deployment_queue')
         .update({
           status: 'failed',
@@ -47,7 +47,7 @@ export async function processDeploymentQueue() {
 
 export async function processDeployment(studentId: string) {
   // 1. Fetch student data
-  const { data: studentData, error: studentError } = await supabaseAdmin
+  const { data: studentData, error: studentError } = await getSupabaseAdmin()
     .from('students')
     .select('*')
     .eq('id', studentId)
@@ -65,10 +65,10 @@ export async function processDeployment(studentId: string) {
     { data: experienceData }, 
     { data: socialLinksData }
   ] = await Promise.all([
-    supabaseAdmin.from('profiles').select('*').eq('student_id', studentId).single(),
-    supabaseAdmin.from('projects').select('*').eq('student_id', studentId).order('order'),
-    supabaseAdmin.from('experience').select('*').eq('student_id', studentId).order('order'),
-    supabaseAdmin.from('social_links').select('*').eq('student_id', studentId).single()
+    getSupabaseAdmin().from('profiles').select('*').eq('student_id', studentId).single(),
+    getSupabaseAdmin().from('projects').select('*').eq('student_id', studentId).order('order'),
+    getSupabaseAdmin().from('experience').select('*').eq('student_id', studentId).order('order'),
+    getSupabaseAdmin().from('social_links').select('*').eq('student_id', studentId).single()
   ])
   
   const profile: any = profileData
@@ -117,13 +117,13 @@ export async function processDeployment(studentId: string) {
   })
 
   // 6. Update student status
-  await (supabaseAdmin as any)
+  await (getSupabaseAdmin() as any)
     .from('students')
     .update({ status: 'deployed' })
     .eq('id', studentId)
 
   // 7. Update deployment queue
-  await (supabaseAdmin as any)
+  await (getSupabaseAdmin() as any)
     .from('deployment_queue')
     .update({
       status: 'completed',
@@ -229,7 +229,7 @@ async function deployToVercel({
 }
 
 export async function retryFailedDeployments() {
-  const { data: failedDeployments } = await supabaseAdmin
+  const { data: failedDeployments } = await getSupabaseAdmin()
     .from('deployment_queue')
     .select('*')
     .eq('status', 'failed')
@@ -241,7 +241,7 @@ export async function retryFailedDeployments() {
 
   for (const deployment of failedDeployments as any[]) {
     // Reset to queued for retry
-    await (supabaseAdmin as any)
+    await (getSupabaseAdmin() as any)
       .from('deployment_queue')
       .update({
         status: 'queued',

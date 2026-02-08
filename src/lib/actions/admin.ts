@@ -1,10 +1,10 @@
 'use server'
 
-import { supabaseAdmin } from '@/lib/db/admin'
+import { getSupabaseAdmin } from '@/lib/db/admin'
 import { validateSubmissionQuality } from '@/lib/validation'
 
 export async function getPendingSubmissions() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('students')
     .select(`
       *,
@@ -38,7 +38,7 @@ export async function getPendingSubmissions() {
 }
 
 export async function getAllStudents() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('students')
     .select(`
       *,
@@ -65,7 +65,7 @@ export async function getStudentDetails(studentId: string): Promise<{
   tierSnapshot: any
   qualityCheck: { valid: boolean; errors: string[] }
 } | null> {
-  const { data: student, error: studentError } = await supabaseAdmin
+  const { data: student, error: studentError } = await getSupabaseAdmin()
     .from('students')
     .select('*')
     .eq('id', studentId)
@@ -73,42 +73,42 @@ export async function getStudentDetails(studentId: string): Promise<{
 
   if (studentError || !student) return null
 
-  const { data: profileData } = await supabaseAdmin
+  const { data: profileData } = await getSupabaseAdmin()
     .from('profiles')
     .select('*')
     .eq('student_id', studentId)
     .single()
   const profile: any = profileData
 
-  const { data: projectsData } = await supabaseAdmin
+  const { data: projectsData } = await getSupabaseAdmin()
     .from('projects')
     .select('*')
     .eq('student_id', studentId)
     .order('order')
   const projects: any[] = projectsData || []
 
-  const { data: experienceData } = await supabaseAdmin
+  const { data: experienceData } = await getSupabaseAdmin()
     .from('experience')
     .select('*')
     .eq('student_id', studentId)
     .order('order')
   const experience: any[] = experienceData || []
 
-  const { data: socialLinksData } = await supabaseAdmin
+  const { data: socialLinksData } = await getSupabaseAdmin()
     .from('social_links')
     .select('*')
     .eq('student_id', studentId)
     .single()
   const socialLinks: any = socialLinksData
 
-  const { data: assetsData } = await supabaseAdmin
+  const { data: assetsData } = await getSupabaseAdmin()
     .from('assets')
     .select('*')
     .eq('student_id', studentId)
     .single()
   const assets: any = assetsData
 
-  const { data: tierSnapshotData } = await supabaseAdmin
+  const { data: tierSnapshotData } = await getSupabaseAdmin()
     .from('tier_limits_snapshot')
     .select('*')
     .eq('student_id', studentId)
@@ -135,7 +135,7 @@ export async function getStudentDetails(studentId: string): Promise<{
 export async function approveSubmission(studentId: string) {
   try {
     // Update student status
-    const { error: updateError } = await (supabaseAdmin as any)
+    const { error: updateError } = await (getSupabaseAdmin() as any)
       .from('students')
       .update({ status: 'approved' })
       .eq('id', studentId)
@@ -143,7 +143,7 @@ export async function approveSubmission(studentId: string) {
     if (updateError) throw updateError
 
     // Add to deployment queue
-    const { error: queueError } = await supabaseAdmin
+    const { error: queueError } = await getSupabaseAdmin()
       .from('deployment_queue')
       // @ts-ignore
       .insert({
@@ -171,7 +171,7 @@ export async function rejectSubmission(
   try {
     // Get student details for refund if needed
     if (shouldRefund) {
-      const { data: student } = await supabaseAdmin
+      const { data: student } = await getSupabaseAdmin()
         .from('students')
         .select('stripe_payment_intent_id')
         .eq('id', studentId)
@@ -185,7 +185,7 @@ export async function rejectSubmission(
     }
 
     // Update student status to indicate rejection
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
       .from('students')
       // @ts-ignore
       .update({ 
@@ -229,7 +229,7 @@ export async function requestEdits(
 }
 
 export async function getDeploymentQueue() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('deployment_queue')
     .select(`
       *,
@@ -246,7 +246,7 @@ export async function getDeploymentQueue() {
 }
 
 export async function getChangeRequests() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('change_requests')
     .select(`
       *,
@@ -267,7 +267,7 @@ export async function updateChangeRequestStatus(
   status: 'approved' | 'completed' | 'rejected'
 ) {
   try {
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
       .from('change_requests')
       // @ts-ignore
       .update({ status })
@@ -287,26 +287,26 @@ export async function updateChangeRequestStatus(
 
 export async function getStats() {
   try {
-    const { count: totalStudents } = await supabaseAdmin
+    const { count: totalStudents } = await getSupabaseAdmin()
       .from('students')
       .select('*', { count: 'exact', head: true })
 
-    const { count: pendingSubmissions } = await supabaseAdmin
+    const { count: pendingSubmissions } = await getSupabaseAdmin()
       .from('students')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'submitted')
 
-    const { count: deployedSites } = await supabaseAdmin
+    const { count: deployedSites } = await getSupabaseAdmin()
       .from('students')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'deployed')
 
-    const { count: queuedDeployments } = await supabaseAdmin
+    const { count: queuedDeployments } = await getSupabaseAdmin()
       .from('deployment_queue')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'queued')
 
-    const { count: pendingChanges } = await supabaseAdmin
+    const { count: pendingChanges } = await getSupabaseAdmin()
       .from('change_requests')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending')

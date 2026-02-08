@@ -1,5 +1,7 @@
+'use server'
+
 import { createClient } from '@/lib/db/client'
-import { supabaseAdmin } from '@/lib/db/admin'
+import { getSupabaseAdmin } from '@/lib/db/admin'
 
 export async function signInWithEmail(email: string, password: string) {
   const supabase = createClient()
@@ -14,7 +16,7 @@ export async function signInWithEmail(email: string, password: string) {
   }
 
   // Check if user is an admin
-  const { data: adminUser } = await supabaseAdmin
+  const { data: adminUser } = await getSupabaseAdmin()
     .from('admin_users')
     .select('*')
     .eq('email', email)
@@ -43,7 +45,7 @@ export async function isAdmin() {
   const user = await getCurrentUser()
   if (!user) return false
 
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from('admin_users')
     .select('*')
     .eq('id', user.id)

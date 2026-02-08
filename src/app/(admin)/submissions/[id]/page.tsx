@@ -4,12 +4,15 @@ import { Card } from '@/components/ui/card'
 import Link from 'next/link'
 import { ArrowLeft, Check, X, ExternalLink, AlertCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SubmissionDetailPage({ 
   params 
 }: { 
-  params: { id: string } 
+  params: Promise<{ id: string }> 
 }) {
-  const details = await getStudentDetails(params.id)
+  const { id } = await params
+  const details = await getStudentDetails(id)
 
   if (!details) {
     notFound()
@@ -41,7 +44,7 @@ export default async function SubmissionDetailPage({
         <div className="flex items-center gap-3">
           <form action={async () => {
             'use server'
-            await rejectSubmission(params.id, 'Quality issues')
+            await rejectSubmission(id, 'Quality issues')
           }}>
             <button 
               type="submit"
@@ -53,7 +56,7 @@ export default async function SubmissionDetailPage({
           </form>
           <form action={async () => {
             'use server'
-            await approveSubmission(params.id)
+            await approveSubmission(id)
           }}>
             <button 
               type="submit"
