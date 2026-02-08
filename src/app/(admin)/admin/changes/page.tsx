@@ -87,7 +87,7 @@ async function handleAction(requestId: string, status: 'approved' | 'completed' 
 }
 
 export default async function ChangesPage() {
-  const requests = await getChangeRequests()
+  const requests = (await getChangeRequests()) || []
 
   const pendingCount = requests.filter((r: any) => r.status === 'pending').length
   const approvedCount = requests.filter((r: any) => r.status === 'approved').length

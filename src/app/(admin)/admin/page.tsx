@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminDashboard() {
   const stats = await getStats()
-  const pendingSubmissions = await getPendingSubmissions()
-  const deploymentQueue = await getDeploymentQueue()
+  const pendingSubmissions = (await getPendingSubmissions()) || []
+  const deploymentQueue = (await getDeploymentQueue()) || []
 
   return (
     <div className="space-y-8">
@@ -75,7 +75,7 @@ export default async function AdminDashboard() {
                       <span className="text-xs text-slate-500">
                         {submission.profiles?.role || 'No role'}
                       </span>
-                      {submission.qualityCheck && !submission.qualityCheck.valid && (
+                      {submission.qualityCheck && !submission.qualityCheck.valid && submission.qualityCheck.errors?.length > 0 && (
                         <span className="text-xs text-red-600">
                           {submission.qualityCheck.errors.length} issues
                         </span>

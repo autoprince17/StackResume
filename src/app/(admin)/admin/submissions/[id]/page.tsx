@@ -70,7 +70,7 @@ export default async function SubmissionDetailPage({
       </div>
 
       {/* Quality Check */}
-      {!qualityCheck.valid && (
+      {!qualityCheck?.valid && qualityCheck?.errors?.length > 0 && (
         <Card className="p-6 border-red-200 bg-red-50">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />

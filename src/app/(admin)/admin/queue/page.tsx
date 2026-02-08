@@ -45,7 +45,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function QueuePage() {
-  const queue = await getDeploymentQueue()
+  const queue = (await getDeploymentQueue()) || []
 
   const queuedCount = queue.filter((item: any) => item.status === 'queued').length
   const processingCount = queue.filter((item: any) => item.status === 'processing').length

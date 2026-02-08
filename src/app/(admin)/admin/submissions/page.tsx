@@ -5,7 +5,7 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function SubmissionsPage() {
-  const submissions = await getPendingSubmissions()
+  const submissions = (await getPendingSubmissions()) || []
 
   return (
     <div className="space-y-8">
@@ -79,7 +79,7 @@ export default async function SubmissionsPage() {
                     </div>
                   </div>
 
-                  {!submission.qualityCheck?.valid && (
+                  {!submission.qualityCheck?.valid && submission.qualityCheck?.errors?.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
                       <p className="text-sm font-medium text-red-800 mb-1">Quality Issues:</p>
                       <ul className="text-sm text-red-700 space-y-1">
