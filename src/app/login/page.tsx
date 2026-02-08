@@ -1,7 +1,14 @@
 import { signInWithEmail } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>
+}) {
+  const params = searchParams ? await searchParams : {}
+  
   async function handleSubmit(formData: FormData) {
     'use server'
     
@@ -11,7 +18,10 @@ export default function LoginPage() {
     const result = await signInWithEmail(email, password)
 
     if (result.success) {
+      revalidatePath('/admin', 'layout')
       redirect('/admin')
+    } else {
+      redirect(`/login?error=${encodeURIComponent(result.error || 'Login failed')}`)
     }
   }
 
@@ -25,6 +35,12 @@ export default function LoginPage() {
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">
           <form action={handleSubmit} className="space-y-6">
+            {params.error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+                {params.error}
+              </div>
+            )}
+            
             <div>
               <label htmlFor="email" className="label">
                 Email Address
