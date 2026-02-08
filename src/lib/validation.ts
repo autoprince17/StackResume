@@ -47,7 +47,7 @@ export const onboardingFormSchema = z.object({
 // Admin validation for minimum approval standards
 export function validateSubmissionQuality(data: {
   bio: string
-  projects: Array<{ description: string; techStack: string[] }>
+  projects: Array<{ description: string; tech_stack?: string[]; techStack?: string[] }>
 }): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
@@ -75,12 +75,14 @@ export function validateSubmissionQuality(data: {
     errors.push('At least one project required')
   } else {
     data.projects.forEach((project, index) => {
-      const descWordCount = project.description.trim().split(/\s+/).length
+      const descWordCount = (project.description || '').trim().split(/\s+/).length
       if (descWordCount < 20) {
         errors.push(`Project ${index + 1}: Description too short`)
       }
       
-      if (project.techStack.length === 0) {
+      // Accept both snake_case (from DB) and camelCase field names
+      const techStack = project.tech_stack || project.techStack || []
+      if (techStack.length === 0) {
         errors.push(`Project ${index + 1}: No technologies listed`)
       }
 
@@ -95,7 +97,7 @@ export function validateSubmissionQuality(data: {
         /impact/i
       ]
       
-      if (!outcomePatterns.some(pattern => pattern.test(project.description))) {
+      if (!outcomePatterns.some(pattern => pattern.test(project.description || ''))) {
         errors.push(`Project ${index + 1}: Add outcome or learning`)
       }
     })
