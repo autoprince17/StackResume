@@ -29,25 +29,35 @@ export async function middleware(request: NextRequest) {
   )
 
   // Protect admin routes
-  if (request.nextUrl.pathname.startsWith('/admin')) {
+  if (request.nextUrl.pathname.startsWith('/admin') || 
+      request.nextUrl.pathname.startsWith('/submissions') ||
+      request.nextUrl.pathname.startsWith('/deploy')) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
+    console.log('Middleware: Checking admin access for:', user?.id, user?.email)
+
     if (!user) {
+      console.log('Middleware: No user, redirecting to login')
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
     // Check if user is an admin
-    const { data: adminUser } = await supabase
+    const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
       .select('*')
       .eq('id', user.id)
       .single()
 
+    console.log('Middleware: Admin user check:', { adminUser, adminError })
+
     if (!adminUser) {
+      console.log('Middleware: User not in admin_users, redirecting to home')
       return NextResponse.redirect(new URL('/', request.url))
     }
+
+    console.log('Middleware: Admin access granted')
   }
 
   return supabaseResponse
