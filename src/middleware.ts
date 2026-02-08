@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/types/supabase'
 
@@ -40,14 +41,25 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabase
+    // Use service role client to check admin_users (bypasses RLS)
+    const supabaseAdmin = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    )
+
+    const { data: adminUser } = await supabaseAdmin
       .from('admin_users')
-      .select('*')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (!adminUser || adminError) {
+    if (!adminUser) {
       return NextResponse.redirect(new URL('/', request.url))
     }
   }
