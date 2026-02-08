@@ -16,6 +16,7 @@ CREATE TABLE students (
   cohort_id UUID,
   stripe_payment_intent_id TEXT,
   stripe_customer_id TEXT,
+  error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -134,7 +135,7 @@ CREATE TABLE cohorts (
 
 -- Admin users
 CREATE TABLE admin_users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
   role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'super_admin')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -155,10 +156,13 @@ CREATE INDEX idx_students_email ON students(email);
 CREATE INDEX idx_students_status ON students(status);
 CREATE INDEX idx_students_subdomain ON students(subdomain);
 CREATE INDEX idx_students_cohort ON students(cohort_id);
+CREATE INDEX idx_students_stripe_payment_intent ON students(stripe_payment_intent_id);
 CREATE INDEX idx_projects_student ON projects(student_id);
 CREATE INDEX idx_experience_student ON experience(student_id);
 CREATE INDEX idx_deployment_queue_status ON deployment_queue(status);
 CREATE INDEX idx_change_requests_student ON change_requests(student_id);
+CREATE INDEX idx_admin_users_id ON admin_users(id);
+CREATE INDEX idx_admin_users_email ON admin_users(email);
 
 -- Row Level Security (RLS) Policies
 
@@ -220,9 +224,20 @@ CREATE POLICY "Students can read own change requests"
 -- Admin users
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can read admin users" 
-  ON admin_users FOR SELECT 
-  USING (auth.uid() IN (SELECT id FROM admin_users));
+-- Service role has full access (for backend operations)
+CREATE POLICY "service_role_full_access"
+  ON admin_users
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- Authenticated users can check if they are admin (for middleware)
+CREATE POLICY "authenticated_users_can_read_own_status"
+  ON admin_users
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = id);
 
 -- Functions
 

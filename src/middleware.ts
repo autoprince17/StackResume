@@ -28,7 +28,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // TEMPORARY: Disable admin check to test if this is the issue
   // Protect admin routes
   if (request.nextUrl.pathname.startsWith('/admin') || 
       request.nextUrl.pathname.startsWith('/submissions') ||
@@ -37,18 +36,10 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    console.log('🔍 Middleware check:', {
-      path: request.nextUrl.pathname,
-      user: user ? { id: user.id, email: user.email } : null,
-    })
-
     if (!user) {
-      console.log('❌ No user, redirecting to /login')
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // TEMPORARILY COMMENT OUT THE ADMIN CHECK TO TEST
-    /*
     // Check if user is an admin
     const { data: adminUser, error: adminError } = await supabase
       .from('admin_users')
@@ -56,15 +47,9 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    console.log('🔍 Admin check:', { adminUser, adminError })
-
-    if (!adminUser) {
-      console.log('❌ User not in admin_users, redirecting to /')
+    if (!adminUser || adminError) {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    */
-
-    console.log('✅ User authenticated, allowing access')
   }
 
   return supabaseResponse

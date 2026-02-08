@@ -19,6 +19,9 @@ export interface Database {
           subdomain: string | null
           custom_domain: string | null
           cohort_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_customer_id: string | null
+          error_message: string | null
           created_at: string
           updated_at: string
         }
@@ -31,6 +34,9 @@ export interface Database {
           subdomain?: string | null
           custom_domain?: string | null
           cohort_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_customer_id?: string | null
+          error_message?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +49,9 @@ export interface Database {
           subdomain?: string | null
           custom_domain?: string | null
           cohort_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_customer_id?: string | null
+          error_message?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -343,7 +352,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?: string
+          id: string
           email: string
           role?: 'admin' | 'super_admin'
           created_at?: string

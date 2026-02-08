@@ -22,16 +22,11 @@ export async function signInWithEmail(email: string, password: string) {
     .eq('id', data.user.id)
     .single()
 
-  // Debug logging
-  console.log('Admin check for user:', data.user.id, data.user.email)
-  console.log('Admin user found:', adminUser)
-  console.log('Admin error:', adminError)
-
   if (!adminUser || adminError) {
     await supabase.auth.signOut()
     return { 
       success: false, 
-      error: `Unauthorized access. User ID ${data.user.id} is not in admin_users table. Please run FIX_ADMIN_NOW.sql in Supabase.` 
+      error: `Unauthorized access. User ID ${data.user.id} is not in admin_users table. Please run FIX_RLS_COMPLETE.sql in Supabase.` 
     }
   }
 
