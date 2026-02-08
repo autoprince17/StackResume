@@ -14,17 +14,25 @@ import {
 import Stripe from 'stripe'
 import { v4 as uuidv4 } from 'uuid'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-01-28.clover',
-})
+// Lazy initialization of Stripe client
+let stripe: Stripe | null = null
+
+function getStripe() {
+  if (!stripe) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-01-28.clover',
+    })
+  }
+  return stripe
+}
 
 export async function createPaymentIntent(tier: 'starter' | 'professional' | 'flagship') {
   try {
     const amount = TIER_PRICES[tier]
     
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
-      currency: 'usd',
+      currency: 'myr',
       automatic_payment_methods: {
         enabled: true
       },
@@ -49,7 +57,7 @@ export async function createPaymentIntent(tier: 'starter' | 'professional' | 'fl
 
 export async function verifyPayment(paymentIntentId: string) {
   try {
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId)
     
     return {
       success: paymentIntent.status === 'succeeded',

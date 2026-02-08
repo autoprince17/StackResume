@@ -12,7 +12,7 @@ const tiers = [
   {
     id: 'starter' as Tier,
     name: 'Starter',
-    price: '$129',
+    price: 'RM129',
     priceCents: 12900,
     description: 'A clean, credible portfolio that does not hurt hiring chances.',
     features: [
@@ -31,7 +31,7 @@ const tiers = [
   {
     id: 'professional' as Tier,
     name: 'Professional',
-    price: '$229',
+    price: 'RM229',
     priceCents: 22900,
     description: 'Competes with strong bootcamp / CS grads.',
     features: [
@@ -47,7 +47,7 @@ const tiers = [
   {
     id: 'flagship' as Tier,
     name: 'Flagship',
-    price: '$499',
+    price: 'RM499',
     priceCents: 49900,
     description: 'White-glove positioning for competitive roles.',
     features: [

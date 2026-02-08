@@ -161,7 +161,7 @@ export default function LandingPage() {
             {[
               {
                 name: 'Starter',
-                price: '$129',
+                price: 'RM129',
                 description: 'Perfect for your first job search',
                 features: [
                   'Up to 3 projects',
@@ -172,7 +172,7 @@ export default function LandingPage() {
               },
               {
                 name: 'Professional',
-                price: '$229',
+                price: 'RM229',
                 description: 'Stand out from other candidates',
                 features: [
                   'Unlimited projects',
@@ -185,7 +185,7 @@ export default function LandingPage() {
               },
               {
                 name: 'Flagship',
-                price: '$499',
+                price: 'RM499',
                 description: 'White-glove service for competitive roles',
                 features: [
                   'Everything in Professional',

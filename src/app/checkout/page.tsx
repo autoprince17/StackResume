@@ -49,9 +49,9 @@ function CheckoutForm({ tier }: { tier: string }) {
   }
 
   const tierDisplay = {
-    starter: { name: 'Starter', price: '$129' },
-    professional: { name: 'Professional', price: '$229' },
-    flagship: { name: 'Flagship', price: '$499' }
+    starter: { name: 'Starter', price: 'RM129' },
+    professional: { name: 'Professional', price: 'RM229' },
+    flagship: { name: 'Flagship', price: 'RM499' }
   }
 
   const currentTier = tierDisplay[tier as keyof typeof tierDisplay]

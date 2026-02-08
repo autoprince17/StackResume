@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { TIER_PRICES } from '@/lib/tiers'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-01-28.clover',
-})
+// Lazy initialization of Stripe client
+let stripe: Stripe | null = null
+
+function getStripe() {
+  if (!stripe) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-01-28.clover',
+    })
+  }
+  return stripe
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,9 +27,9 @@ export async function POST(req: NextRequest) {
 
     const amount = TIER_PRICES[tier as keyof typeof TIER_PRICES]
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
-      currency: 'usd',
+      currency: 'myr',
       automatic_payment_methods: {
         enabled: true,
       },
