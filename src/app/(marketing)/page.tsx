@@ -133,14 +133,30 @@ export default function LandingPage() {
               </ul>
             </div>
             
-            <div className="bg-white rounded-lg border border-slate-200 p-8 shadow-sm">
-              <div className="aspect-video bg-slate-100 rounded mb-6 flex items-center justify-center">
-                <span className="text-slate-400 text-sm">Portfolio Preview</span>
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+              {/* Browser chrome */}
+              <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-400" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                  <div className="w-3 h-3 rounded-full bg-green-400" />
+                </div>
+                <div className="flex-1 mx-4">
+                  <div className="bg-white rounded-md border border-slate-200 px-3 py-1 text-xs text-slate-400 text-center">
+                    sarahchen.stackresume.com
+                  </div>
+                </div>
               </div>
-              <div className="space-y-3">
-                <div className="h-8 bg-slate-100 rounded w-3/4"></div>
-                <div className="h-4 bg-slate-100 rounded w-full"></div>
-                <div className="h-4 bg-slate-100 rounded w-5/6"></div>
+              {/* Portfolio iframe */}
+              <div className="aspect-[4/3] relative overflow-hidden">
+                <iframe
+                  src="/api/examples/sarah-chen"
+                  className="w-[200%] h-[200%] border-0 pointer-events-none"
+                  style={{ transform: 'scale(0.5)', transformOrigin: 'top left' }}
+                  title="Example portfolio preview"
+                  tabIndex={-1}
+                  loading="lazy"
+                />
               </div>
             </div>
           </div>

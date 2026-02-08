@@ -1,10 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/db/client'
+import { createClient } from '@/lib/db/server'
 import { getSupabaseAdmin } from '@/lib/db/admin'
 
 export async function signInWithEmail(email: string, password: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -31,12 +31,12 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 export async function signOut() {
-  const supabase = createClient()
+  const supabase = await createClient()
   await supabase.auth.signOut()
 }
 
 export async function getCurrentUser() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   return user
 }
