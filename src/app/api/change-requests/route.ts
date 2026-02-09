@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/db/admin'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
+import { isValidUUID } from '@/lib/validation'
 
 export async function POST(req: NextRequest) {
+  // Rate limit: max 10 change requests per IP per minute
+  const rl = checkRateLimit(getClientIdentifier(req, 'change-request'), {
+    maxRequests: 10,
+    windowSeconds: 60,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: rl.headers }
+    )
+  }
+
   try {
     const { studentId, type, description } = await req.json()
 
     if (!studentId || !type || !description) {
       return NextResponse.json(
         { error: 'Missing required fields: studentId, type, description' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidUUID(studentId)) {
+      return NextResponse.json(
+        { error: 'Invalid studentId format' },
         { status: 400 }
       )
     }
@@ -86,6 +107,13 @@ export async function GET(req: NextRequest) {
     if (!studentId) {
       return NextResponse.json(
         { error: 'studentId is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidUUID(studentId)) {
+      return NextResponse.json(
+        { error: 'Invalid studentId format' },
         { status: 400 }
       )
     }

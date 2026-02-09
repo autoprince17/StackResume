@@ -1,9 +1,25 @@
 import { getSupabaseAdmin } from '@/lib/db/admin'
 import { generatePortfolioHTML, selectTemplate, PortfolioData } from '@/components/templates'
+import { getVercelToken, getVercelTeamId } from '@/lib/env'
 
 interface DeploymentConfig {
   vercelToken: string
   teamId?: string
+}
+
+/** Build a Vercel API URL, appending ?teamId=xxx when configured */
+function vercelUrl(path: string, teamId?: string): string {
+  const base = `https://api.vercel.com${path}`
+  return teamId ? `${base}?teamId=${encodeURIComponent(teamId)}` : base
+}
+
+/** Read the response body once and return it for logging, regardless of content type */
+async function readResponseBody(res: Response): Promise<string> {
+  try {
+    return await res.text()
+  } catch {
+    return '<unable to read response body>'
+  }
 }
 
 export async function processDeploymentQueue() {
@@ -152,8 +168,8 @@ async function deployToVercel({
   template: string
 }) {
   const config: DeploymentConfig = {
-    vercelToken: process.env.VERCEL_TOKEN!,
-    teamId: process.env.VERCEL_TEAM_ID
+    vercelToken: getVercelToken(),
+    teamId: getVercelTeamId()
   }
 
   // Create or get project
@@ -161,7 +177,7 @@ async function deployToVercel({
   
   try {
     // Create project
-    const createProjectRes = await fetch('https://api.vercel.com/v10/projects', {
+    const createProjectRes = await fetch(vercelUrl('/v10/projects', config.teamId), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.vercelToken}`,
@@ -174,14 +190,16 @@ async function deployToVercel({
     })
 
     if (!createProjectRes.ok && createProjectRes.status !== 409) {
-      throw new Error('Failed to create Vercel project')
+      const body = await readResponseBody(createProjectRes)
+      console.error(`Vercel project creation failed [${createProjectRes.status}]:`, body)
+      throw new Error(`Failed to create Vercel project (HTTP ${createProjectRes.status}): ${body}`)
     }
 
     const project = createProjectRes.ok ? await createProjectRes.json() : null
     const projectId = project?.id || projectName
 
     // Deploy static files
-    const deployRes = await fetch(`https://api.vercel.com/v13/deployments`, {
+    const deployRes = await fetch(vercelUrl('/v13/deployments', config.teamId), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.vercelToken}`,
@@ -205,8 +223,9 @@ async function deployToVercel({
     })
 
     if (!deployRes.ok) {
-      const error = await deployRes.text()
-      throw new Error(`Deployment failed: ${error}`)
+      const body = await readResponseBody(deployRes)
+      console.error(`Vercel deployment failed [${deployRes.status}]:`, body)
+      throw new Error(`Deployment failed (HTTP ${deployRes.status}): ${body}`)
     }
 
     const deployment = await deployRes.json()
@@ -214,7 +233,7 @@ async function deployToVercel({
     // Assign domain alias
     const domain = `${subdomain}.stackresume.com`
     
-    await fetch(`https://api.vercel.com/v10/projects/${projectId}/domains`, {
+    const domainRes = await fetch(vercelUrl(`/v10/projects/${projectId}/domains`, config.teamId), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.vercelToken}`,
@@ -224,6 +243,12 @@ async function deployToVercel({
         name: domain
       })
     })
+
+    if (!domainRes.ok) {
+      const body = await readResponseBody(domainRes)
+      // Log but don't throw — deployment succeeded, domain assignment is best-effort
+      console.error(`Vercel domain assignment failed [${domainRes.status}] for ${domain}:`, body)
+    }
 
     return `https://${domain}`
 
@@ -275,8 +300,8 @@ export async function retryFailedDeployments() {
 
 export async function undeployStudent(studentId: string) {
   const config = {
-    vercelToken: process.env.VERCEL_TOKEN!,
-    teamId: process.env.VERCEL_TEAM_ID
+    vercelToken: getVercelToken(),
+    teamId: getVercelTeamId()
   }
 
   try {
@@ -296,7 +321,7 @@ export async function undeployStudent(studentId: string) {
     const projectName = `stackresume-${student.subdomain}`
 
     // Delete Vercel project (this removes the deployment and domain aliases)
-    const deleteRes = await fetch(`https://api.vercel.com/v10/projects/${projectName}`, {
+    const deleteRes = await fetch(vercelUrl(`/v10/projects/${projectName}`, config.teamId), {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${config.vercelToken}`,

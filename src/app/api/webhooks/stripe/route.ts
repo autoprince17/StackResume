@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getSupabaseAdmin } from '@/lib/db/admin'
+import { getStripeSecretKey, getStripeWebhookSecret } from '@/lib/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,14 +10,12 @@ let stripe: Stripe | null = null
 
 function getStripe() {
   if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    stripe = new Stripe(getStripeSecretKey(), {
       apiVersion: '2026-01-28.clover',
     })
   }
   return stripe
 }
-
-const getWebhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET!
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event
 
   try {
-    event = getStripe().webhooks.constructEvent(body, signature, getWebhookSecret())
+    event = getStripe().webhooks.constructEvent(body, signature, getStripeWebhookSecret())
   } catch (err) {
     console.error('Webhook signature verification failed:', err)
     return NextResponse.json(

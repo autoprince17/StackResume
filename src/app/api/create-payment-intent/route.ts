@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { TIER_PRICES } from '@/lib/tiers'
+import { getStripeSecretKey } from '@/lib/env'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
 
 // Lazy initialization of Stripe client
 let stripe: Stripe | null = null
 
 function getStripe() {
   if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    stripe = new Stripe(getStripeSecretKey(), {
       apiVersion: '2026-01-28.clover',
     })
   }
@@ -15,6 +17,18 @@ function getStripe() {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: max 10 payment intent creations per IP per minute
+  const rl = checkRateLimit(getClientIdentifier(req, 'create-payment-intent'), {
+    maxRequests: 10,
+    windowSeconds: 60,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: rl.headers }
+    )
+  }
+
   try {
     const { tier } = await req.json()
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/supabase'
+import { getSupabaseUrl, getSupabaseServiceRoleKey } from '@/lib/env'
 
 // Lazy initialization of Supabase admin client
 let supabaseAdmin: ReturnType<typeof createClient<Database>> | null = null
@@ -7,8 +8,8 @@ let supabaseAdmin: ReturnType<typeof createClient<Database>> | null = null
 export function getSupabaseAdmin() {
   if (!supabaseAdmin) {
     supabaseAdmin = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      getSupabaseUrl(),
+      getSupabaseServiceRoleKey(),
       {
         auth: {
           autoRefreshToken: false,

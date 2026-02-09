@@ -5,6 +5,7 @@ import {
   requestEdits, 
   allowResubmission 
 } from '@/lib/actions/admin'
+import { isValidUUID } from '@/lib/validation'
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,13 @@ export async function POST(req: NextRequest) {
     if (!studentId || !action) {
       return NextResponse.json(
         { error: 'Missing required fields: studentId, action' },
+        { status: 400 }
+      )
+    }
+
+    if (!isValidUUID(studentId)) {
+      return NextResponse.json(
+        { error: 'Invalid studentId format' },
         { status: 400 }
       )
     }

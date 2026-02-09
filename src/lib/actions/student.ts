@@ -14,13 +14,14 @@ import {
 } from '@/lib/tiers'
 import Stripe from 'stripe'
 import { v4 as uuidv4 } from 'uuid'
+import { getStripeSecretKey } from '@/lib/env'
 
 // Lazy initialization of Stripe client
 let stripe: Stripe | null = null
 
 function getStripe() {
   if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    stripe = new Stripe(getStripeSecretKey(), {
       apiVersion: '2026-01-28.clover',
     })
   }
@@ -99,6 +100,7 @@ export async function submitOnboardingForm(
     resume?: File
   }
 ) {
+  let studentId: string | undefined
   try {
     // Verify payment first
     const payment = await verifyPayment(paymentIntentId)
@@ -162,13 +164,37 @@ export async function submitOnboardingForm(
     }
 
     // Generate student ID
-    const studentId = uuidv4()
+    studentId = uuidv4()
     const subdomain = await getUniqueSubdomain(data.personalInfo.name)
 
     // Upload files to Supabase Storage
     const supabase = await createClient()
     let profilePhotoUrl: string | null = null
     let resumeUrl: string | null = null
+
+    // Validate file uploads before uploading
+    const MAX_PHOTO_SIZE = 5 * 1024 * 1024  // 5 MB
+    const MAX_RESUME_SIZE = 10 * 1024 * 1024 // 10 MB
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    const ALLOWED_RESUME_TYPES = ['application/pdf']
+
+    if (files.profilePhoto) {
+      if (files.profilePhoto.size > MAX_PHOTO_SIZE) {
+        return { success: false, error: 'Profile photo must be under 5 MB' }
+      }
+      if (!ALLOWED_IMAGE_TYPES.includes(files.profilePhoto.type)) {
+        return { success: false, error: 'Profile photo must be a JPEG, PNG, or WebP image' }
+      }
+    }
+
+    if (files.resume) {
+      if (files.resume.size > MAX_RESUME_SIZE) {
+        return { success: false, error: 'Resume must be under 10 MB' }
+      }
+      if (!ALLOWED_RESUME_TYPES.includes(files.resume.type)) {
+        return { success: false, error: 'Resume must be a PDF file' }
+      }
+    }
 
     if (files.profilePhoto) {
       const { data: uploadData, error } = await getSupabaseAdmin()
@@ -307,6 +333,27 @@ export async function submitOnboardingForm(
   } catch (error: any) {
     console.error('Form submission failed:', error)
 
+    // Attempt cleanup of partially inserted records to avoid orphaned data.
+    // The studentId variable is scoped outside this catch, so it may be set
+    // even if a later insert failed.
+    if (typeof studentId !== 'undefined' && studentId) {
+      try {
+        console.warn(`Rolling back partial submission for student ${studentId}`)
+        const admin = getSupabaseAdmin() as any
+        // Delete in reverse order of insertion (child tables first)
+        await admin.from('tier_limits_snapshot').delete().eq('student_id', studentId)
+        await admin.from('assets').delete().eq('student_id', studentId)
+        await admin.from('social_links').delete().eq('student_id', studentId)
+        await admin.from('experience').delete().eq('student_id', studentId)
+        await admin.from('projects').delete().eq('student_id', studentId)
+        await admin.from('profiles').delete().eq('student_id', studentId)
+        await admin.from('students').delete().eq('id', studentId)
+      } catch (cleanupError) {
+        // Log but don't throw — the original error is more important
+        console.error('Rollback cleanup failed:', cleanupError)
+      }
+    }
+
     // Surface specific database constraint errors
     if (error?.code === '23505') {
       if (error.details?.includes('email')) {
@@ -375,27 +422,36 @@ export async function getStudentDashboard(studentId: string) {
 }
 
 function generateSubdomain(name: string): string {
-  return name
+  const base = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .substring(0, 30)
+  // Ensure we have something valid even if the name was all non-alphanumeric
+  return base || 'portfolio'
 }
 
 async function getUniqueSubdomain(name: string): Promise<string> {
   const base = generateSubdomain(name)
+  const MAX_ATTEMPTS = 5
 
-  const { data: existing } = await (getSupabaseAdmin() as any)
-    .from('students')
-    .select('id')
-    .eq('subdomain', base)
-    .maybeSingle()
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const candidate = attempt === 0
+      ? base
+      : `${base}-${Math.random().toString(36).substring(2, 6)}`.substring(0, 30)
 
-  if (!existing) return base
+    const { data: existing } = await (getSupabaseAdmin() as any)
+      .from('students')
+      .select('id')
+      .eq('subdomain', candidate)
+      .maybeSingle()
 
-  // Append random suffix to avoid collision
-  const suffix = Math.random().toString(36).substring(2, 6)
-  return `${base}-${suffix}`.substring(0, 30)
+    if (!existing) return candidate
+  }
+
+  // Final fallback: use a UUID suffix to guarantee uniqueness
+  const fallback = `${base}-${uuidv4().substring(0, 8)}`.substring(0, 30)
+  return fallback
 }
 
 export async function updateSubmission(
@@ -453,7 +509,23 @@ export async function updateSubmission(
     if (data.personalInfo) {
       const studentUpdates: Record<string, any> = {}
       if (data.personalInfo.name) studentUpdates.name = data.personalInfo.name
-      if (data.personalInfo.email) studentUpdates.email = data.personalInfo.email
+      if (data.personalInfo.email) {
+        // Verify the new email isn't already taken by a different student
+        const { data: emailConflict } = await (getSupabaseAdmin() as any)
+          .from('students')
+          .select('id')
+          .eq('email', data.personalInfo.email)
+          .neq('id', studentId)
+          .maybeSingle()
+
+        if (emailConflict) {
+          return {
+            success: false,
+            error: 'This email is already in use by another student. Please use a different email address.'
+          }
+        }
+        studentUpdates.email = data.personalInfo.email
+      }
 
       if (Object.keys(studentUpdates).length > 0) {
         const { error } = await (getSupabaseAdmin() as any)

@@ -138,13 +138,13 @@ export default function PricingPage() {
         )}
 
         {/* Pricing cards */}
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-8 md:items-center mb-16">
           {tiers.map((tier) => (
             <div
               key={tier.id}
               className={`card relative ${
                 tier.popular 
-                  ? 'border-slate-900 ring-1 ring-slate-900 md:scale-105' 
+                  ? 'border-slate-900 ring-1 ring-slate-900 md:-mt-4 md:-mb-4 md:z-10 shadow-lg' 
                   : ''
               }`}
             >

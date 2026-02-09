@@ -20,12 +20,17 @@ export default function MarketingLayout({
               Pricing
             </Link>
           </nav>
-          <Link 
-            href="/pricing" 
-            className="btn btn-primary text-sm"
-          >
-            Get Started
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-sm text-slate-600 hover:text-slate-900">
+              Sign In
+            </Link>
+            <Link 
+              href="/pricing" 
+              className="btn btn-primary text-sm"
+            >
+              Get Started
+            </Link>
+          </div>
         </div>
       </header>
       

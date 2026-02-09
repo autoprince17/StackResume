@@ -130,3 +130,19 @@ export const serverOnboardingFormSchema = z.object({
   experience: z.array(experienceSchema),
   socialLinks: socialLinksSchema,
 })
+
+// ── Lightweight runtime validators ──────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Returns true if `value` is a valid UUID v4 string */
+export function isValidUUID(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value)
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Returns true if `value` looks like a valid email address */
+export function isValidEmail(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 254 && EMAIL_RE.test(value)
+}

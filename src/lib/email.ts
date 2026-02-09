@@ -9,6 +9,9 @@
  * To add more providers (SendGrid, Nodemailer, etc.), add a new case to sendEmail().
  */
 
+import { getEmailProvider, getResendApiKey, getEmailFrom } from '@/lib/env'
+import { escapeHtml } from '@/components/templates/utils'
+
 interface EmailOptions {
   to: string
   subject: string
@@ -21,15 +24,13 @@ interface EmailResult {
   error?: string
 }
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'StackResume <hello@stackresume.com>'
-
 async function sendEmail(options: EmailOptions): Promise<EmailResult> {
-  const provider = process.env.EMAIL_PROVIDER || 'console'
+  const provider = getEmailProvider()
 
   try {
     switch (provider) {
       case 'resend': {
-        const apiKey = process.env.RESEND_API_KEY
+        const apiKey = getResendApiKey()
         if (!apiKey) {
           console.warn('RESEND_API_KEY not set, falling back to console')
           console.log(`[EMAIL] To: ${options.to} | Subject: ${options.subject}`)
@@ -43,7 +44,7 @@ async function sendEmail(options: EmailOptions): Promise<EmailResult> {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: FROM_EMAIL,
+            from: getEmailFrom(),
             to: options.to,
             subject: options.subject,
             html: options.html,
@@ -79,11 +80,12 @@ async function sendEmail(options: EmailOptions): Promise<EmailResult> {
 // ---- Notification templates ----
 
 export async function sendSubmissionReceived(email: string, name: string): Promise<EmailResult> {
+  const safeName = escapeHtml(name)
   return sendEmail({
     to: email,
     subject: 'We received your portfolio submission — StackResume',
     html: `
-      <h2>Thanks for submitting, ${name}!</h2>
+      <h2>Thanks for submitting, ${safeName}!</h2>
       <p>We have received your portfolio content and it is now in our review queue.</p>
       <p>Here is what happens next:</p>
       <ol>
@@ -99,11 +101,12 @@ export async function sendSubmissionReceived(email: string, name: string): Promi
 }
 
 export async function sendSubmissionApproved(email: string, name: string): Promise<EmailResult> {
+  const safeName = escapeHtml(name)
   return sendEmail({
     to: email,
     subject: 'Your portfolio has been approved — StackResume',
     html: `
-      <h2>Great news, ${name}!</h2>
+      <h2>Great news, ${safeName}!</h2>
       <p>Your portfolio submission has been approved and is now being built.</p>
       <p>We will email you again once your portfolio is live with your URL.</p>
       <p>— The StackResume Team</p>
@@ -118,13 +121,14 @@ export async function sendPortfolioDeployed(
   subdomain: string,
   customDomain?: string | null
 ): Promise<EmailResult> {
-  const primaryUrl = customDomain || `${subdomain}.stackresume.com`
+  const safeName = escapeHtml(name)
+  const primaryUrl = escapeHtml(customDomain || `${subdomain}.stackresume.com`)
   
   return sendEmail({
     to: email,
     subject: 'Your portfolio is LIVE — StackResume',
     html: `
-      <h2>Your portfolio is live, ${name}!</h2>
+      <h2>Your portfolio is live, ${safeName}!</h2>
       <p>Your portfolio has been deployed and is ready to share:</p>
       <p><a href="https://${primaryUrl}" style="font-size: 18px; font-weight: bold;">https://${primaryUrl}</a></p>
       <p>Add this link to your resume, LinkedIn, and job applications.</p>
@@ -141,13 +145,15 @@ export async function sendSubmissionRejected(
   reason: string,
   refunded: boolean
 ): Promise<EmailResult> {
+  const safeName = escapeHtml(name)
+  const safeReason = escapeHtml(reason)
   return sendEmail({
     to: email,
     subject: 'Update on your portfolio submission — StackResume',
     html: `
-      <h2>Hi ${name},</h2>
+      <h2>Hi ${safeName},</h2>
       <p>Unfortunately, we were unable to proceed with your portfolio submission.</p>
-      <p><strong>Reason:</strong> ${reason}</p>
+      <p><strong>Reason:</strong> ${safeReason}</p>
       ${refunded ? '<p>A full refund has been issued to your original payment method. It may take 5-10 business days to appear.</p>' : ''}
       <p>You can check the details and status on your <a href="https://stackresume.com/dashboard">dashboard</a>.</p>
       <p>If you have questions, reply to this email or contact us at hello@stackresume.com.</p>
@@ -162,13 +168,14 @@ export async function sendEditsRequested(
   name: string, 
   editRequests: string[]
 ): Promise<EmailResult> {
-  const editList = editRequests.map(r => `<li>${r}</li>`).join('')
+  const safeName = escapeHtml(name)
+  const editList = editRequests.map(r => `<li>${escapeHtml(r)}</li>`).join('')
   
   return sendEmail({
     to: email,
     subject: 'Edits requested for your portfolio — StackResume',
     html: `
-      <h2>Hi ${name},</h2>
+      <h2>Hi ${safeName},</h2>
       <p>We have reviewed your submission and would like to request some changes before we build your portfolio:</p>
       <ul>${editList}</ul>
       <p>Please visit your <a href="https://stackresume.com/dashboard">dashboard</a> to update your submission.</p>
@@ -182,11 +189,12 @@ export async function sendRefundNotification(
   email: string,
   name: string
 ): Promise<EmailResult> {
+  const safeName = escapeHtml(name)
   return sendEmail({
     to: email,
     subject: 'Refund processed for your StackResume payment',
     html: `
-      <h2>Hi ${name},</h2>
+      <h2>Hi ${safeName},</h2>
       <p>A refund has been processed for your StackResume payment.</p>
       <p>The refund should appear on your original payment method within 5-10 business days.</p>
       <p>You can check the details on your <a href="https://stackresume.com/dashboard">dashboard</a>.</p>

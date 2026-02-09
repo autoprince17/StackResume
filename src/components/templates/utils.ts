@@ -34,6 +34,33 @@ export interface PortfolioData {
   }
 }
 
+/**
+ * Escape HTML special characters to prevent XSS when interpolating
+ * user-supplied strings into generated HTML.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Sanitize a URL for use in href attributes.
+ * Only allows http:, https:, and mailto: schemes.
+ * Returns '#' for anything else (e.g. javascript: URIs).
+ */
+export function sanitizeUrl(url: string | null | undefined): string {
+  if (!url) return '#'
+  const trimmed = url.trim()
+  if (/^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed)) {
+    return escapeHtml(trimmed)
+  }
+  return '#'
+}
+
 // Generate SEO metadata
 export function generateSEOMetadata(data: PortfolioData) {
   const title = `${data.student.name} - ${data.profile.role}`

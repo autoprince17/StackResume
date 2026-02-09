@@ -1,4 +1,4 @@
-import { PortfolioData, generateSEOMetadata, formatDateRange } from '../utils'
+import { PortfolioData, generateSEOMetadata, formatDateRange, escapeHtml, sanitizeUrl } from '../utils'
 
 export function DevOpsTemplate({ data }: { data: PortfolioData }) {
   const seo = generateSEOMetadata(data)
@@ -10,9 +10,9 @@ export function DevOpsTemplate({ data }: { data: PortfolioData }) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${seo.title}</title>
-  <meta name="description" content="${seo.description}">
-  <meta name="keywords" content="${seo.keywords}">
+  <title>${escapeHtml(seo.title)}</title>
+  <meta name="description" content="${escapeHtml(seo.description)}">
+  <meta name="keywords" content="${escapeHtml(seo.keywords)}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -285,11 +285,11 @@ export function DevOpsTemplate({ data }: { data: PortfolioData }) {
   <header>
     <div class="container">
       <p class="terminal-line">$ whoami</p>
-      <h1 class="name">${data.student.name}</h1>
-      <p class="role">${data.profile.role}</p>
-      <p class="bio">${data.profile.bio}</p>
+      <h1 class="name">${escapeHtml(data.student.name)}</h1>
+      <p class="role">${escapeHtml(data.profile.role)}</p>
+      <p class="bio">${escapeHtml(data.profile.bio)}</p>
       <div class="tech-stack">
-        ${data.profile.tech_stack.map(tech => `<span class="tech-tag">${tech}</span>`).join('')}
+        ${data.profile.tech_stack.map(tech => `<span class="tech-tag">${escapeHtml(tech)}</span>`).join('')}
       </div>
     </div>
   </header>
@@ -300,15 +300,15 @@ export function DevOpsTemplate({ data }: { data: PortfolioData }) {
       ${data.projects.map(project => `
         <article class="project">
           <div class="project-header">
-            <h3 class="project-title">${project.title}</h3>
+            <h3 class="project-title">${escapeHtml(project.title)}</h3>
             <div class="project-links">
-              <a href="${project.github_url}" class="project-link" target="_blank" rel="noopener">[github]</a>
-              ${project.live_url ? `<a href="${project.live_url}" class="project-link" target="_blank" rel="noopener">[demo]</a>` : ''}
+              <a href="${sanitizeUrl(project.github_url)}" class="project-link" target="_blank" rel="noopener">[github]</a>
+              ${project.live_url ? `<a href="${sanitizeUrl(project.live_url)}" class="project-link" target="_blank" rel="noopener">[demo]</a>` : ''}
             </div>
           </div>
-          <p class="project-description">${project.description}</p>
+          <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="project-tech">
-            ${project.tech_stack.map(tech => `<span class="project-tech-tag">${tech}</span>`).join('')}
+            ${project.tech_stack.map(tech => `<span class="project-tech-tag">${escapeHtml(tech)}</span>`).join('')}
           </div>
         </article>
       `).join('')}
@@ -322,11 +322,11 @@ export function DevOpsTemplate({ data }: { data: PortfolioData }) {
       ${data.experience.map(exp => `
         <div class="experience-item">
           <div class="experience-header">
-            <h3 class="experience-role">${exp.role}</h3>
-            <span class="experience-date">${formatDateRange(exp.start_date, exp.end_date)}</span>
+            <h3 class="experience-role">${escapeHtml(exp.role)}</h3>
+            <span class="experience-date">${escapeHtml(formatDateRange(exp.start_date, exp.end_date))}</span>
           </div>
-          <p class="experience-org">${exp.organization}</p>
-          <p class="experience-description">${exp.description}</p>
+          <p class="experience-org">${escapeHtml(exp.organization)}</p>
+          <p class="experience-description">${escapeHtml(exp.description)}</p>
         </div>
       `).join('')}
     </div>
@@ -336,10 +336,10 @@ export function DevOpsTemplate({ data }: { data: PortfolioData }) {
   <footer>
     <div class="container">
       <div class="social-links">
-        ${data.socialLinks.github ? `<a href="${data.socialLinks.github}" class="social-link" target="_blank" rel="noopener">[github]</a>` : ''}
-        ${data.socialLinks.linkedin ? `<a href="${data.socialLinks.linkedin}" class="social-link" target="_blank" rel="noopener">[linkedin]</a>` : ''}
+        ${data.socialLinks.github ? `<a href="${sanitizeUrl(data.socialLinks.github)}" class="social-link" target="_blank" rel="noopener">[github]</a>` : ''}
+        ${data.socialLinks.linkedin ? `<a href="${sanitizeUrl(data.socialLinks.linkedin)}" class="social-link" target="_blank" rel="noopener">[linkedin]</a>` : ''}
       </div>
-      <p class="copyright">// © ${new Date().getFullYear()} ${data.student.name} | Built with StackResume</p>
+      <p class="copyright">// © ${new Date().getFullYear()} ${escapeHtml(data.student.name)} | Built with StackResume</p>
     </div>
   </footer>
 </body>

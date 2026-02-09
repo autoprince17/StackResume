@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/db/admin'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
+import { isValidUUID } from '@/lib/validation'
 
 export const dynamic = 'force-dynamic'
 
 // POST: Record a page view (called from portfolio tracking pixel)
 export async function POST(req: NextRequest) {
+  // Rate limit: max 60 analytics pings per IP per minute (generous for page views)
+  const rl = checkRateLimit(getClientIdentifier(req, 'analytics-track'), {
+    maxRequests: 60,
+    windowSeconds: 60,
+  })
+  if (!rl.allowed) {
+    return new NextResponse(null, { status: 204 }) // Silently drop — don't break portfolio
+  }
+
   try {
     const { studentId, referrer, deviceType } = await req.json()
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
+    }
+
+    if (!isValidUUID(studentId)) {
+      return new NextResponse(null, { status: 204 }) // Silently drop invalid IDs like rate limit
     }
 
     // Determine device type from User-Agent if not provided
@@ -63,6 +78,10 @@ export async function GET(req: NextRequest) {
 
     if (!studentId) {
       return NextResponse.json({ error: 'studentId is required' }, { status: 400 })
+    }
+
+    if (!isValidUUID(studentId)) {
+      return NextResponse.json({ error: 'Invalid studentId format' }, { status: 400 })
     }
 
     // Check that student exists and has analytics enabled

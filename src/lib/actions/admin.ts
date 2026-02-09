@@ -8,13 +8,14 @@ import {
   sendSubmissionRejected, 
   sendEditsRequested 
 } from '@/lib/email'
+import { getStripeSecretKey } from '@/lib/env'
 
 // Lazy initialization of Stripe client
 let stripe: Stripe | null = null
 
 function getStripe() {
   if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    stripe = new Stripe(getStripeSecretKey(), {
       apiVersion: '2026-01-28.clover',
     })
   }
@@ -152,12 +153,27 @@ export async function getStudentDetails(studentId: string): Promise<{
 
 export async function approveSubmission(studentId: string) {
   try {
-    // Get student info for email
+    // Get student info for status guard and email
     const { data: studentData } = await getSupabaseAdmin()
       .from('students')
-      .select('name, email')
+      .select('name, email, status')
       .eq('id', studentId)
       .single()
+
+    if (!studentData) {
+      return { success: false, error: 'Student not found' }
+    }
+
+    const student = studentData as any
+
+    // Status guard: only allow approval from submitted or edits_requested
+    const allowedStatuses = ['submitted', 'edits_requested']
+    if (!allowedStatuses.includes(student.status)) {
+      return {
+        success: false,
+        error: `Cannot approve a student with status "${student.status}". Only submitted or edits_requested students can be approved.`
+      }
+    }
 
     // Update student status
     const { error: updateError } = await (getSupabaseAdmin() as any)
@@ -166,6 +182,16 @@ export async function approveSubmission(studentId: string) {
       .eq('id', studentId)
 
     if (updateError) throw updateError
+
+    // Prevent duplicate deployment queue entries — cancel any existing queued/processing entries first
+    await (getSupabaseAdmin() as any)
+      .from('deployment_queue')
+      .update({ 
+        status: 'failed',
+        error_message: 'Superseded by new approval'
+      })
+      .eq('student_id', studentId)
+      .in('status', ['queued', 'processing'])
 
     // Add to deployment queue
     const { error: queueError } = await getSupabaseAdmin()
@@ -179,12 +205,7 @@ export async function approveSubmission(studentId: string) {
     if (queueError) throw queueError
 
     // Send email notification
-    if (studentData) {
-      await sendSubmissionApproved(
-        (studentData as any).email,
-        (studentData as any).name
-      )
-    }
+    await sendSubmissionApproved(student.email, student.name)
 
     return { success: true }
   } catch (error) {
