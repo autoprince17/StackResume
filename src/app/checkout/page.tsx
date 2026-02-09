@@ -109,9 +109,9 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     // Read payment details stored by the pricing page
-    const storedClientSecret = sessionStorage.getItem('clientSecret')
-    const storedPaymentIntentId = sessionStorage.getItem('paymentIntentId')
-    const selectedTier = sessionStorage.getItem('selectedTier')
+    const storedClientSecret = localStorage.getItem('clientSecret')
+    const storedPaymentIntentId = localStorage.getItem('paymentIntentId')
+    const selectedTier = localStorage.getItem('selectedTier')
 
     if (!storedClientSecret || !storedPaymentIntentId || !selectedTier) {
       setIsValid(false)

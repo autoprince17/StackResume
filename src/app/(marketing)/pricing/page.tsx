@@ -76,10 +76,10 @@ export default function PricingPage() {
       const result = await createPaymentIntent(tier)
       
       if (result.success && result.clientSecret) {
-        // Store payment details in session storage for checkout
-        sessionStorage.setItem('paymentIntentId', result.paymentIntentId)
-        sessionStorage.setItem('clientSecret', result.clientSecret)
-        sessionStorage.setItem('selectedTier', tier)
+        // Store payment details for checkout (localStorage survives tab close)
+        localStorage.setItem('paymentIntentId', result.paymentIntentId)
+        localStorage.setItem('clientSecret', result.clientSecret)
+        localStorage.setItem('selectedTier', tier)
         
         // Redirect to checkout page
         router.push('/checkout')

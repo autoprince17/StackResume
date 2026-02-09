@@ -34,7 +34,10 @@ export const experienceSchema = z.object({
 
 export const socialLinksSchema = z.object({
   github: z.string().url().startsWith('https://github.com/').optional().or(z.literal('')),
-  linkedin: z.string().url().startsWith('https://linkedin.com/in/').optional().or(z.literal('')),
+  linkedin: z.string().url().refine(
+    (val) => val.startsWith('https://linkedin.com/in/') || val.startsWith('https://www.linkedin.com/in/'),
+    'Must start with https://linkedin.com/in/ or https://www.linkedin.com/in/'
+  ).optional().or(z.literal('')),
   existingPortfolio: z.string().url().optional().or(z.literal(''))
 })
 

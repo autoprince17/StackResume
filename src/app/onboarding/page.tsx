@@ -100,8 +100,8 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     try {
-      const storedTier = sessionStorage.getItem('selectedTier')
-      const storedPaymentIntentId = sessionStorage.getItem('paymentIntentId')
+      const storedTier = localStorage.getItem('selectedTier')
+      const storedPaymentIntentId = localStorage.getItem('paymentIntentId')
 
       if (!storedTier || !storedPaymentIntentId) {
         router.push('/pricing')
@@ -111,7 +111,7 @@ export default function OnboardingPage() {
       setTier(storedTier as typeof tier)
       setPaymentIntentId(storedPaymentIntentId)
     } catch {
-      // sessionStorage may be unavailable in some browsers
+      // localStorage may be unavailable in some browsers
       router.push('/pricing')
     }
   }, [router])
@@ -368,9 +368,15 @@ export default function OnboardingPage() {
   }
 
   const handleSubmit = async () => {
-    if (!validateStep() || !paymentIntentId) return
+    if (!validateStep()) return
+
+    if (!paymentIntentId) {
+      setErrors({ submit: 'Payment information not found. Please return to the pricing page to start again.' })
+      return
+    }
 
     setIsSubmitting(true)
+    setErrors({})
 
     try {
       const result = await submitOnboardingForm(
@@ -398,15 +404,21 @@ export default function OnboardingPage() {
       )
 
       if (result.success) {
-        // Clear session storage
-        sessionStorage.removeItem('paymentIntentId')
-        sessionStorage.removeItem('selectedTier')
+        // Clear payment data from storage
+        try {
+          localStorage.removeItem('paymentIntentId')
+          localStorage.removeItem('selectedTier')
+          localStorage.removeItem('clientSecret')
+        } catch {
+          // Ignore storage errors on cleanup
+        }
         // Redirect to success page
         router.push('/success?studentId=' + result.studentId)
       } else {
-        setErrors({ submit: result.error || 'Submission failed' })
+        setErrors({ submit: result.error || 'Submission failed. Please try again.' })
       }
     } catch (error) {
+      console.error('Onboarding submit error:', error)
       setErrors({ submit: 'Something went wrong. Please try again.' })
     } finally {
       setIsSubmitting(false)
