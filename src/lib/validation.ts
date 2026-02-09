@@ -3,14 +3,17 @@ import { z } from 'zod'
 export const personalInfoSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
-  bio: z.string().min(40, 'Bio must be at least 40 words').max(500, 'Bio too long'),
+  bio: z.string().max(5000, 'Bio is too long').refine(
+    (val) => val.trim().split(/\s+/).filter(w => w.length > 0).length >= 40,
+    'Bio must be at least 40 words'
+  ),
   profilePhoto: z.instanceof(File).optional()
 })
 
 export const technicalProfileSchema = z.object({
   role: z.enum(['Developer', 'Data Scientist', 'DevOps']),
   techStack: z.array(z.string()).min(1, 'Select at least one technology'),
-  skills: z.array(z.string()).min(1, 'Add at least one skill')
+  skills: z.array(z.string()).default([])
 })
 
 export const projectSchema = z.object({
@@ -115,3 +118,12 @@ export type Project = z.infer<typeof projectSchema>
 export type Experience = z.infer<typeof experienceSchema>
 export type SocialLinks = z.infer<typeof socialLinksSchema>
 export type OnboardingFormData = z.infer<typeof onboardingFormSchema>
+
+// Server-side validation schema (no File fields)
+export const serverOnboardingFormSchema = z.object({
+  personalInfo: personalInfoSchema.omit({ profilePhoto: true }),
+  technicalProfile: technicalProfileSchema,
+  projects: z.array(projectSchema).min(1, 'At least one project required'),
+  experience: z.array(experienceSchema),
+  socialLinks: socialLinksSchema,
+})

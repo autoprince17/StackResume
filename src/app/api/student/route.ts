@@ -23,7 +23,15 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ student })
+    // Sanitize response - don't expose internal fields
+    const {
+      stripe_payment_intent_id,
+      refund_id,
+      error_message,
+      ...safeStudent
+    } = student as any
+
+    return NextResponse.json({ student: safeStudent })
   } catch (error) {
     console.error('Student lookup error:', error)
     return NextResponse.json(

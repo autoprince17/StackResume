@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
-import { getStudentDetails, approveSubmission, rejectSubmission, updateCustomDomain } from '@/lib/actions/admin'
+import { getStudentDetails } from '@/lib/actions/admin'
 import { Card } from '@/components/ui/card'
 import Link from 'next/link'
-import { ArrowLeft, Check, X, ExternalLink, AlertCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, AlertCircle } from 'lucide-react'
+import ActionsPanel from './actions-panel'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,33 +42,16 @@ export default async function SubmissionDetailPage({
           <h1 className="text-3xl font-bold text-slate-900">{student.name}</h1>
           <p className="text-slate-600 mt-1">{student.email}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <form action={async () => {
-            'use server'
-            await rejectSubmission(id, 'Quality issues')
-          }}>
-            <button 
-              type="submit"
-              className="btn bg-red-100 text-red-700 hover:bg-red-200"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Reject
-            </button>
-          </form>
-          <form action={async () => {
-            'use server'
-            await approveSubmission(id)
-          }}>
-            <button 
-              type="submit"
-              className="btn btn-primary"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Approve
-            </button>
-          </form>
-        </div>
       </div>
+
+      {/* Actions Panel (Client Component) */}
+      <ActionsPanel
+        studentId={id}
+        studentStatus={student.status}
+        studentName={student.name}
+        rejectionReason={student.rejection_reason || null}
+        refundId={student.refund_id || null}
+      />
 
       {/* Quality Check */}
       {!qualityCheck?.valid && qualityCheck?.errors?.length > 0 && (
@@ -78,7 +62,7 @@ export default async function SubmissionDetailPage({
               <h3 className="font-semibold text-red-900 mb-2">Quality Issues Detected</h3>
               <ul className="space-y-1">
                 {qualityCheck.errors.map((error, i) => (
-                  <li key={i} className="text-sm text-red-800">• {error}</li>
+                  <li key={i} className="text-sm text-red-800">&bull; {error}</li>
                 ))}
               </ul>
             </div>
@@ -205,7 +189,14 @@ export default async function SubmissionDetailPage({
               </div>
               <div>
                 <p className="text-sm text-slate-500">Status</p>
-                <p className="font-medium text-slate-900 capitalize">{student.status}</p>
+                <p className={`font-medium capitalize ${
+                  student.status === 'deployed' ? 'text-green-700' :
+                  student.status === 'rejected' ? 'text-red-700' :
+                  student.status === 'edits_requested' ? 'text-amber-700' :
+                  'text-slate-900'
+                }`}>
+                  {student.status === 'edits_requested' ? 'Edits Requested' : student.status}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-slate-500">Submitted</p>
@@ -285,41 +276,11 @@ export default async function SubmissionDetailPage({
             <Card className="p-6">
               <h3 className="font-semibold text-slate-900 mb-4">Custom Domain</h3>
               {student.custom_domain ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-slate-600">
-                    Current domain: <strong className="text-slate-900">{student.custom_domain}</strong>
-                  </p>
-                  <form action={async () => {
-                    'use server'
-                    await updateCustomDomain(id, null)
-                  }}>
-                    <button type="submit" className="text-sm text-red-600 hover:underline">
-                      Remove domain
-                    </button>
-                  </form>
-                </div>
+                <p className="text-sm text-slate-600">
+                  Current domain: <strong className="text-slate-900">{student.custom_domain}</strong>
+                </p>
               ) : (
-                <form action={async (formData: FormData) => {
-                  'use server'
-                  const domain = formData.get('domain') as string
-                  if (domain) {
-                    await updateCustomDomain(id, domain)
-                  }
-                }}>
-                  <div className="space-y-3">
-                    <p className="text-sm text-slate-600">No custom domain configured</p>
-                    <input
-                      type="text"
-                      name="domain"
-                      placeholder="example.com"
-                      className="input text-sm"
-                      required
-                    />
-                    <button type="submit" className="btn btn-secondary w-full text-sm">
-                      Set Domain
-                    </button>
-                  </div>
-                </form>
+                <p className="text-sm text-slate-600">No custom domain configured</p>
               )}
             </Card>
           )}

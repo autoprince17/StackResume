@@ -17,7 +17,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid md:grid-cols-5 gap-4">
+      <div className="grid md:grid-cols-6 gap-4">
         <Card className="p-6">
           <p className="text-sm text-slate-600 mb-1">Total Students</p>
           <p className="text-3xl font-bold text-slate-900">{stats.totalStudents}</p>
@@ -29,6 +29,10 @@ export default async function AdminDashboard() {
         <Card className="p-6 border-green-200 bg-green-50">
           <p className="text-sm text-slate-600 mb-1">Deployed</p>
           <p className="text-3xl font-bold text-green-700">{stats.deployedSites}</p>
+        </Card>
+        <Card className="p-6 border-red-200 bg-red-50">
+          <p className="text-sm text-slate-600 mb-1">Rejected</p>
+          <p className="text-3xl font-bold text-red-700">{stats.rejectedStudents}</p>
         </Card>
         <Card className="p-6">
           <p className="text-sm text-slate-600 mb-1">In Queue</p>
@@ -78,6 +82,11 @@ export default async function AdminDashboard() {
                       {submission.qualityCheck && !submission.qualityCheck.valid && submission.qualityCheck.errors?.length > 0 && (
                         <span className="text-xs text-red-600">
                           {submission.qualityCheck.errors.length} issues
+                        </span>
+                      )}
+                      {submission.status === 'edits_requested' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          Edits Requested
                         </span>
                       )}
                     </div>

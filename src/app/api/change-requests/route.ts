@@ -34,6 +34,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Block change requests from rejected students
+    const studentRecord = student as any
+    if (studentRecord.status === 'rejected') {
+      return NextResponse.json(
+        { error: 'Change requests are not available for rejected submissions. Please contact support.' },
+        { status: 403 }
+      )
+    }
+
     // Determine if this is a paid change (template_swap, redesign for non-flagship)
     const isPaid = type === 'template_swap' || type === 'redesign'
     const amount = isPaid ? (type === 'redesign' ? 9900 : 4900) : 0 // RM99 or RM49

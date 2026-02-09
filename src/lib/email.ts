@@ -149,10 +149,11 @@ export async function sendSubmissionRejected(
       <p>Unfortunately, we were unable to proceed with your portfolio submission.</p>
       <p><strong>Reason:</strong> ${reason}</p>
       ${refunded ? '<p>A full refund has been issued to your original payment method. It may take 5-10 business days to appear.</p>' : ''}
+      <p>You can check the details and status on your <a href="https://stackresume.com/dashboard">dashboard</a>.</p>
       <p>If you have questions, reply to this email or contact us at hello@stackresume.com.</p>
       <p>— The StackResume Team</p>
     `,
-    text: `Hi ${name}, unfortunately we were unable to proceed with your portfolio submission. Reason: ${reason}. ${refunded ? 'A full refund has been issued.' : ''} Contact hello@stackresume.com for questions.`,
+    text: `Hi ${name}, unfortunately we were unable to proceed with your portfolio submission. Reason: ${reason}. ${refunded ? 'A full refund has been issued.' : ''} Check your dashboard at https://stackresume.com/dashboard for details. Contact hello@stackresume.com for questions.`,
   })
 }
 
@@ -174,5 +175,24 @@ export async function sendEditsRequested(
       <p>— The StackResume Team</p>
     `,
     text: `Hi ${name}, we have reviewed your submission and would like to request some changes: ${editRequests.join('; ')}. Please visit your dashboard to update your submission.`,
+  })
+}
+
+export async function sendRefundNotification(
+  email: string,
+  name: string
+): Promise<EmailResult> {
+  return sendEmail({
+    to: email,
+    subject: 'Refund processed for your StackResume payment',
+    html: `
+      <h2>Hi ${name},</h2>
+      <p>A refund has been processed for your StackResume payment.</p>
+      <p>The refund should appear on your original payment method within 5-10 business days.</p>
+      <p>You can check the details on your <a href="https://stackresume.com/dashboard">dashboard</a>.</p>
+      <p>If you have questions, reply to this email or contact us at hello@stackresume.com.</p>
+      <p>— The StackResume Team</p>
+    `,
+    text: `Hi ${name}, a refund has been processed for your StackResume payment. It should appear within 5-10 business days. Check your dashboard at https://stackresume.com/dashboard for details. Contact hello@stackresume.com for questions.`,
   })
 }

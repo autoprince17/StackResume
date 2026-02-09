@@ -116,19 +116,43 @@ export async function POST(req: NextRequest) {
         if (charge.payment_intent) {
           const { data: refundedStudent } = await (getSupabaseAdmin() as any)
             .from('students')
-            .select('id, status')
+            .select('id, status, rejection_reason')
             .eq('stripe_payment_intent_id', charge.payment_intent)
             .single()
 
           if (refundedStudent) {
-            // Mark student as refunded/errored
+            const student = refundedStudent as any
+
+            // Check if this is a partial refund — don't cancel portfolio for partial refunds
+            const isPartialRefund = charge.amount_refunded < charge.amount
+            if (isPartialRefund) {
+              console.log(`Partial refund for student ${student.id} — no status change`)
+              break
+            }
+
+            // Don't overwrite admin-initiated rejection data
+            if (student.status === 'rejected') {
+              // Admin already rejected — just ensure refund_id is stored
+              await (getSupabaseAdmin() as any)
+                .from('students')
+                .update({ 
+                  refund_id: charge.refunds?.data?.[0]?.id || null
+                })
+                .eq('id', student.id)
+
+              console.log(`Student ${student.id} already rejected — refund_id updated`)
+              break
+            }
+
+            // Webhook-triggered refund (not admin-initiated) — set to rejected
             await (getSupabaseAdmin() as any)
               .from('students')
               .update({ 
-                status: 'error',
-                error_message: 'Payment refunded'
+                status: 'rejected',
+                rejection_reason: 'Payment refunded',
+                refund_id: charge.refunds?.data?.[0]?.id || null,
               })
-              .eq('id', refundedStudent.id)
+              .eq('id', student.id)
 
             // Mark any queued/processing deployments as failed
             await (getSupabaseAdmin() as any)
@@ -137,10 +161,10 @@ export async function POST(req: NextRequest) {
                 status: 'failed',
                 error_message: 'Payment refunded — deployment cancelled'
               })
-              .eq('student_id', refundedStudent.id)
+              .eq('student_id', student.id)
               .in('status', ['queued', 'processing'])
 
-            console.log(`Student ${refundedStudent.id} marked as refunded, deployments cancelled`)
+            console.log(`Student ${student.id} marked as rejected via refund webhook, deployments cancelled`)
           }
         }
         

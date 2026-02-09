@@ -99,26 +99,53 @@ export default function OnboardingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    // Verify payment and get tier
-    const storedTier = sessionStorage.getItem('selectedTier')
-    const storedPaymentIntentId = sessionStorage.getItem('paymentIntentId')
+    try {
+      const storedTier = sessionStorage.getItem('selectedTier')
+      const storedPaymentIntentId = sessionStorage.getItem('paymentIntentId')
 
-    if (!storedTier || !storedPaymentIntentId) {
+      if (!storedTier || !storedPaymentIntentId) {
+        router.push('/pricing')
+        return
+      }
+
+      setTier(storedTier as typeof tier)
+      setPaymentIntentId(storedPaymentIntentId)
+    } catch {
+      // sessionStorage may be unavailable in some browsers
       router.push('/pricing')
-      return
     }
-
-    setTier(storedTier as typeof tier)
-    setPaymentIntentId(storedPaymentIntentId)
   }, [router])
+
+  // Warn about unsaved changes on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasData = formData.personalInfo.name || formData.personalInfo.email ||
+        formData.personalInfo.bio || formData.projects.some(p => p.title || p.description)
+      if (hasData) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [formData])
 
   const updateFormData = useCallback((section: keyof FormData, data: any) => {
     setFormData(prev => ({
       ...prev,
       [section]: data
     }))
-    // Clear errors when user updates
-    setErrors({})
+    // Clear errors only for the section being edited
+    setErrors(prev => {
+      const next = { ...prev }
+      const sectionKeys: Record<string, string[]> = {
+        personalInfo: ['name', 'email', 'bio', 'profilePhoto'],
+        technicalProfile: ['role', 'techStack', 'skills'],
+        socialLinks: ['github', 'linkedin'],
+      }
+      const keys = sectionKeys[section]
+      if (keys) keys.forEach(k => delete next[k])
+      return next
+    })
   }, [])
 
   const addProject = () => {
@@ -156,6 +183,19 @@ export default function OnboardingPage() {
         i === index ? { ...p, [field]: value } : p
       )
     }))
+    // Clear the specific project field error
+    setErrors(prev => {
+      const next = { ...prev }
+      const errorKeyMap: Record<string, string> = {
+        title: `project_${index}_title`,
+        description: `project_${index}_description`,
+        githubUrl: `project_${index}_github`,
+        techStack: `project_${index}_techStack`,
+      }
+      if (errorKeyMap[field]) delete next[errorKeyMap[field]]
+      delete next.projects
+      return next
+    })
   }
 
   const addExperience = () => {
@@ -185,6 +225,12 @@ export default function OnboardingPage() {
         i === index ? { ...e, [field]: value } : e
       )
     }))
+    // Clear the specific experience field error
+    setErrors(prev => {
+      const next = { ...prev }
+      delete next[`exp_${index}_${field}`]
+      return next
+    })
   }
 
   const validateStep = () => {
@@ -200,8 +246,15 @@ export default function OnboardingPage() {
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalInfo.email)) {
           newErrors.email = 'Invalid email address'
         }
-        if (formData.personalInfo.bio.trim().split(/\s+/).length < 40) {
+        if (formData.personalInfo.bio.trim().split(/\s+/).filter(w => w.length > 0).length < 40) {
           newErrors.bio = 'Bio must be at least 40 words'
+        }
+        if (formData.personalInfo.profilePhoto) {
+          if (formData.personalInfo.profilePhoto.size > 10 * 1024 * 1024) {
+            newErrors.profilePhoto = 'Photo must be under 10MB'
+          } else if (!['image/jpeg', 'image/png', 'image/webp'].includes(formData.personalInfo.profilePhoto.type)) {
+            newErrors.profilePhoto = 'Only JPEG, PNG, and WebP images are accepted'
+          }
         }
         break
 
@@ -224,23 +277,74 @@ export default function OnboardingPage() {
             }
             if (!project.description.trim()) {
               newErrors[`project_${index}_description`] = 'Description required'
+            } else if (project.description.trim().length < 50) {
+              newErrors[`project_${index}_description`] = 'Description must be at least 50 characters'
+            }
+            if (project.techStack.length === 0) {
+              newErrors[`project_${index}_techStack`] = 'Add at least one technology'
             }
             if (!project.githubUrl.trim()) {
               newErrors[`project_${index}_github`] = 'GitHub URL required'
+            } else {
+              try {
+                new URL(project.githubUrl)
+                if (!project.githubUrl.startsWith('https://github.com/')) {
+                  newErrors[`project_${index}_github`] = 'Must start with https://github.com/'
+                }
+              } catch {
+                newErrors[`project_${index}_github`] = 'Must be a valid URL'
+              }
             }
           })
         }
         break
 
-      case 3: // Experience - optional, so no validation
+      case 3: // Experience - validate fields if entries exist
+        formData.experience.forEach((exp, index) => {
+          if (!exp.organization.trim()) {
+            newErrors[`exp_${index}_organization`] = 'Organization required'
+          }
+          if (!exp.role.trim()) {
+            newErrors[`exp_${index}_role`] = 'Role required'
+          }
+          if (!exp.startDate) {
+            newErrors[`exp_${index}_startDate`] = 'Start date required'
+          }
+          if (!exp.description.trim()) {
+            newErrors[`exp_${index}_description`] = 'Description required'
+          } else if (exp.description.trim().length < 20) {
+            newErrors[`exp_${index}_description`] = 'Description must be at least 20 characters'
+          }
+        })
         break
 
-      case 4: // Social Links - optional, but validate URLs if provided
-        if (formData.socialLinks.github && !formData.socialLinks.github.includes('github.com')) {
-          newErrors.github = 'Must be a valid GitHub URL'
+      case 4: // Social Links - validate URL format if provided
+        if (formData.socialLinks.github) {
+          try {
+            new URL(formData.socialLinks.github)
+            if (!formData.socialLinks.github.startsWith('https://github.com/')) {
+              newErrors.github = 'Must start with https://github.com/'
+            }
+          } catch {
+            newErrors.github = 'Must be a valid GitHub URL (https://github.com/username)'
+          }
         }
-        if (formData.socialLinks.linkedin && !formData.socialLinks.linkedin.includes('linkedin.com')) {
-          newErrors.linkedin = 'Must be a valid LinkedIn URL'
+        if (formData.socialLinks.linkedin) {
+          try {
+            new URL(formData.socialLinks.linkedin)
+            if (!formData.socialLinks.linkedin.startsWith('https://linkedin.com/in/') &&
+                !formData.socialLinks.linkedin.startsWith('https://www.linkedin.com/in/')) {
+              newErrors.linkedin = 'Must start with https://linkedin.com/in/'
+            }
+          } catch {
+            newErrors.linkedin = 'Must be a valid LinkedIn URL (https://linkedin.com/in/username)'
+          }
+        }
+        break
+
+      case 5: // Resume - validate file size
+        if (formData.resume && formData.resume.size > 10 * 1024 * 1024) {
+          newErrors.resume = 'File must be under 10MB'
         }
         break
     }
@@ -404,6 +508,7 @@ export default function OnboardingPage() {
               onAdd={addExperience}
               onRemove={removeExperience}
               onUpdate={updateExperience}
+              errors={errors}
             />
           )}
 
@@ -419,6 +524,7 @@ export default function OnboardingPage() {
             <ResumeStep
               file={formData.resume}
               onChange={(file) => updateFormData('resume', file)}
+              errors={errors}
             />
           )}
 
@@ -527,7 +633,7 @@ function PersonalInfoStep({
             </span>
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               onChange={(e) => onChange({ ...data, profilePhoto: e.target.files?.[0] || null })}
               className="hidden"
             />
@@ -541,6 +647,7 @@ function PersonalInfoStep({
             </button>
           )}
         </div>
+        {errors.profilePhoto && <p className="mt-2 text-sm text-red-600">{errors.profilePhoto}</p>}
       </div>
     </div>
   )
@@ -607,13 +714,9 @@ function TechnicalProfileStep({
 
       <div>
         <label className="label">Skills (Optional)</label>
-        <input
-          type="text"
-          value={data.skills.join(', ')}
-          onChange={(e) => onChange({ 
-            ...data, 
-            skills: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
-          })}
+        <TagInput
+          value={data.skills}
+          onChange={(tags) => onChange({ ...data, skills: tags })}
           className="input"
           placeholder="e.g., Leadership, Communication, Problem Solving"
         />
@@ -710,13 +813,15 @@ function ProjectsStep({
 
             <div>
               <label className="label text-sm">Technologies Used</label>
-              <input
-                type="text"
-                value={project.techStack.join(', ')}
-                onChange={(e) => onUpdate(index, 'techStack', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+              <TagInput
+                value={project.techStack}
+                onChange={(tags) => onUpdate(index, 'techStack', tags)}
                 className="input"
                 placeholder="React, Node.js, PostgreSQL"
               />
+              {errors[`project_${index}_techStack`] && (
+                <p className="mt-1 text-sm text-red-600">{errors[`project_${index}_techStack`]}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -755,12 +860,14 @@ function ExperienceStep({
   experience,
   onAdd,
   onRemove,
-  onUpdate
+  onUpdate,
+  errors
 }: {
   experience: FormData['experience']
   onAdd: () => void
   onRemove: (index: number) => void
   onUpdate: (index: number, field: string, value: string) => void
+  errors: Record<string, string>
 }) {
   return (
     <div className="space-y-8">
@@ -813,6 +920,9 @@ function ExperienceStep({
                 className="input"
                 placeholder="Company or School Name"
               />
+              {errors[`exp_${index}_organization`] && (
+                <p className="mt-1 text-sm text-red-600">{errors[`exp_${index}_organization`]}</p>
+              )}
             </div>
 
             <div>
@@ -824,6 +934,9 @@ function ExperienceStep({
                 className="input"
                 placeholder="e.g., Software Engineering Intern"
               />
+              {errors[`exp_${index}_role`] && (
+                <p className="mt-1 text-sm text-red-600">{errors[`exp_${index}_role`]}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -835,6 +948,9 @@ function ExperienceStep({
                   onChange={(e) => onUpdate(index, 'startDate', e.target.value)}
                   className="input"
                 />
+                {errors[`exp_${index}_startDate`] && (
+                  <p className="mt-1 text-sm text-red-600">{errors[`exp_${index}_startDate`]}</p>
+                )}
               </div>
               <div>
                 <label className="label text-sm">End Date</label>
@@ -856,6 +972,9 @@ function ExperienceStep({
                 className="input min-h-[80px]"
                 placeholder="Describe your responsibilities and achievements..."
               />
+              {errors[`exp_${index}_description`] && (
+                <p className="mt-1 text-sm text-red-600">{errors[`exp_${index}_description`]}</p>
+              )}
             </div>
           </div>
         </div>
@@ -923,10 +1042,12 @@ function SocialLinksStep({
 
 function ResumeStep({
   file,
-  onChange
+  onChange,
+  errors
 }: {
   file: File | null
   onChange: (file: File | null) => void
+  errors: Record<string, string>
 }) {
   return (
     <div className="space-y-6">
@@ -981,6 +1102,7 @@ function ResumeStep({
             </div>
           )}
         </div>
+        {errors.resume && <p className="mt-2 text-sm text-red-600">{errors.resume}</p>}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -990,5 +1112,45 @@ function ResumeStep({
         </p>
       </div>
     </div>
+  )
+}
+
+function TagInput({
+  value,
+  onChange,
+  className,
+  placeholder
+}: {
+  value: string[]
+  onChange: (tags: string[]) => void
+  className?: string
+  placeholder?: string
+}) {
+  const [raw, setRaw] = useState(value.join(', '))
+  const [isFocused, setIsFocused] = useState(false)
+  const valueStr = value.join(', ')
+
+  // Sync from parent when value changes externally and input is not focused
+  useEffect(() => {
+    if (!isFocused) {
+      setRaw(valueStr)
+    }
+  }, [valueStr, isFocused])
+
+  return (
+    <input
+      type="text"
+      value={raw}
+      onChange={(e) => setRaw(e.target.value)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => {
+        setIsFocused(false)
+        const parsed = raw.split(',').map(s => s.trim()).filter(Boolean)
+        onChange(parsed)
+        setRaw(parsed.join(', '))
+      }}
+      className={className}
+      placeholder={placeholder}
+    />
   )
 }

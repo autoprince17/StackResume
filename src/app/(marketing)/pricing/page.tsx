@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ArrowRight, Shield, Clock, Zap } from 'lucide-react'
+import { Check, ArrowRight, Shield, Clock, Zap, AlertCircle } from 'lucide-react'
 import { createPaymentIntent } from '@/lib/actions/student'
 
 type Tier = 'starter' | 'professional' | 'flagship'
@@ -65,10 +65,12 @@ export default function PricingPage() {
   const router = useRouter()
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSelectTier = async (tier: Tier) => {
     setIsLoading(true)
     setSelectedTier(tier)
+    setError(null)
 
     try {
       const result = await createPaymentIntent(tier)
@@ -82,13 +84,15 @@ export default function PricingPage() {
         // Redirect to checkout page
         router.push('/checkout')
       } else {
-        alert('Failed to initialize checkout. Please try again.')
+        setError('Failed to initialize checkout. Please try again.')
         setIsLoading(false)
+        setSelectedTier(null)
       }
-    } catch (error) {
-      console.error('Checkout error:', error)
-      alert('Something went wrong. Please try again.')
+    } catch (err) {
+      console.error('Checkout error:', err)
+      setError('Something went wrong. Please try again.')
       setIsLoading(false)
+      setSelectedTier(null)
     }
   }
 
@@ -121,6 +125,17 @@ export default function PricingPage() {
             <span>Instant access</span>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <p className="text-sm text-red-600">{error}</p>
+            <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-700 text-sm font-medium">
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Pricing cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-16">

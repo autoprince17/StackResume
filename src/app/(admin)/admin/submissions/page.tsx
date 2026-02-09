@@ -49,6 +49,11 @@ export default async function SubmissionsPage() {
                     }`}>
                       {submission.tier}
                     </span>
+                    {submission.status === 'edits_requested' && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                        Edits Requested
+                      </span>
+                    )}
                     {!submission.qualityCheck?.valid && (
                       <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
                         Needs attention

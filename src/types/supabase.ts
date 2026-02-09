@@ -15,13 +15,15 @@ export interface Database {
           name: string
           email: string
           tier: 'starter' | 'professional' | 'flagship'
-          status: 'submitted' | 'approved' | 'deployed' | 'error'
+          status: 'submitted' | 'approved' | 'deployed' | 'rejected' | 'edits_requested' | 'error'
           subdomain: string | null
           custom_domain: string | null
           cohort_id: string | null
           stripe_payment_intent_id: string | null
           stripe_customer_id: string | null
           error_message: string | null
+          rejection_reason: string | null
+          refund_id: string | null
           created_at: string
           updated_at: string
         }
@@ -30,13 +32,15 @@ export interface Database {
           name: string
           email: string
           tier: 'starter' | 'professional' | 'flagship'
-          status?: 'submitted' | 'approved' | 'deployed' | 'error'
+          status?: 'submitted' | 'approved' | 'deployed' | 'rejected' | 'edits_requested' | 'error'
           subdomain?: string | null
           custom_domain?: string | null
           cohort_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_customer_id?: string | null
           error_message?: string | null
+          rejection_reason?: string | null
+          refund_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -45,13 +49,15 @@ export interface Database {
           name?: string
           email?: string
           tier?: 'starter' | 'professional' | 'flagship'
-          status?: 'submitted' | 'approved' | 'deployed' | 'error'
+          status?: 'submitted' | 'approved' | 'deployed' | 'rejected' | 'edits_requested' | 'error'
           subdomain?: string | null
           custom_domain?: string | null
           cohort_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_customer_id?: string | null
           error_message?: string | null
+          rejection_reason?: string | null
+          refund_id?: string | null
           created_at?: string
           updated_at?: string
         }

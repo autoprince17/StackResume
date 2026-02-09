@@ -33,7 +33,7 @@ export async function getPendingSubmissions() {
       assets(*),
       tier_limits_snapshot(*)
     `)
-    .eq('status', 'submitted')
+    .in('status', ['submitted', 'edits_requested'])
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -202,31 +202,58 @@ export async function rejectSubmission(
   shouldRefund: boolean = false
 ) {
   try {
-    // Get student details for refund and email
+    // Get student details for status guard, refund, and email
     const { data: studentInfo } = await getSupabaseAdmin()
       .from('students')
-      .select('name, email, stripe_payment_intent_id')
+      .select('name, email, stripe_payment_intent_id, status')
       .eq('id', studentId)
       .single()
 
-    if (shouldRefund && (studentInfo as any)?.stripe_payment_intent_id) {
+    if (!studentInfo) {
+      return { success: false, error: 'Student not found' }
+    }
+
+    const student = studentInfo as any
+
+    // Status guard: only allow rejection from submitted or edits_requested
+    const allowedStatuses = ['submitted', 'edits_requested']
+    if (!allowedStatuses.includes(student.status)) {
+      return { 
+        success: false, 
+        error: `Cannot reject a student with status "${student.status}". Only submitted or edits_requested students can be rejected.`
+      }
+    }
+
+    // Process refund if requested
+    let refundId: string | null = null
+    let refundFailed = false
+    let refundError: string | null = null
+
+    if (shouldRefund && student.stripe_payment_intent_id) {
       try {
-        await getStripe().refunds.create({
-          payment_intent: (studentInfo as any).stripe_payment_intent_id,
+        const refund = await getStripe().refunds.create({
+          payment_intent: student.stripe_payment_intent_id,
         })
-        console.log(`Refund processed for student ${studentId}`)
-      } catch (refundError) {
-        console.error(`Refund failed for student ${studentId}:`, refundError)
+        refundId = refund.id
+        console.log(`Refund ${refundId} processed for student ${studentId}`)
+      } catch (err) {
+        refundFailed = true
+        refundError = err instanceof Error ? err.message : 'Unknown refund error'
+        console.error(`Refund failed for student ${studentId}:`, err)
         // Still reject even if refund fails — admin can retry manually via Stripe dashboard
       }
     }
 
-    // Update student status with rejection reason
+    // Update student status with rejection reason in dedicated columns
     const { error } = await (getSupabaseAdmin() as any)
       .from('students')
       .update({ 
-        status: 'error',
-        error_message: `Rejected: ${reason}${shouldRefund ? ' (refund issued)' : ''}`,
+        status: 'rejected',
+        rejection_reason: reason,
+        refund_id: refundId,
+        error_message: refundFailed 
+          ? `Refund failed: ${refundError}` 
+          : null,
       })
       .eq('id', studentId)
 
@@ -243,16 +270,18 @@ export async function rejectSubmission(
       .in('status', ['queued', 'processing'])
 
     // Send rejection email
-    if (studentInfo) {
-      await sendSubmissionRejected(
-        (studentInfo as any).email,
-        (studentInfo as any).name,
-        reason,
-        shouldRefund
-      )
-    }
+    await sendSubmissionRejected(
+      student.email,
+      student.name,
+      reason,
+      shouldRefund && !refundFailed
+    )
 
-    return { success: true }
+    return { 
+      success: true, 
+      refundFailed,
+      refundError: refundFailed ? refundError : undefined 
+    }
   } catch (error) {
     console.error('Failed to reject submission:', error)
     return { 
@@ -269,12 +298,26 @@ export async function requestEdits(
   try {
     const description = editRequests.join('\n• ')
 
-    // Get student info for email
+    // Get student info for status guard and email
     const { data: studentInfo } = await getSupabaseAdmin()
       .from('students')
-      .select('name, email')
+      .select('name, email, status')
       .eq('id', studentId)
       .single()
+
+    if (!studentInfo) {
+      return { success: false, error: 'Student not found' }
+    }
+
+    const student = studentInfo as any
+
+    // Status guard: only allow requesting edits from submitted
+    if (student.status !== 'submitted') {
+      return { 
+        success: false, 
+        error: `Cannot request edits for a student with status "${student.status}". Only submitted students can receive edit requests.`
+      }
+    }
 
     // Create a change_request record for each set of edits
     const { error: crError } = await (getSupabaseAdmin() as any)
@@ -290,10 +333,11 @@ export async function requestEdits(
 
     if (crError) throw crError
 
-    // Update student status to signal edits are needed
+    // Update student status to edits_requested and store edit instructions
     const { error: updateError } = await (getSupabaseAdmin() as any)
       .from('students')
       .update({ 
+        status: 'edits_requested',
         error_message: `Edits requested: ${editRequests.join('; ')}`,
       })
       .eq('id', studentId)
@@ -301,13 +345,11 @@ export async function requestEdits(
     if (updateError) throw updateError
 
     // Send email notification
-    if (studentInfo) {
-      await sendEditsRequested(
-        (studentInfo as any).email,
-        (studentInfo as any).name,
-        editRequests
-      )
-    }
+    await sendEditsRequested(
+      student.email,
+      student.name,
+      editRequests
+    )
 
     return { success: true }
   } catch (error) {
@@ -315,6 +357,53 @@ export async function requestEdits(
     return { 
       success: false, 
       error: 'Failed to send edit request' 
+    }
+  }
+}
+
+export async function allowResubmission(studentId: string) {
+  try {
+    // Get student info for status guard
+    const { data: studentInfo } = await getSupabaseAdmin()
+      .from('students')
+      .select('name, email, status, refund_id')
+      .eq('id', studentId)
+      .single()
+
+    if (!studentInfo) {
+      return { success: false, error: 'Student not found' }
+    }
+
+    const student = studentInfo as any
+
+    // Status guard: only allow resubmission from rejected
+    if (student.status !== 'rejected') {
+      return { 
+        success: false, 
+        error: `Cannot allow resubmission for a student with status "${student.status}". Only rejected students can be allowed to resubmit.`
+      }
+    }
+
+    // Reset student status to edits_requested so they can update and resubmit
+    const { error } = await (getSupabaseAdmin() as any)
+      .from('students')
+      .update({ 
+        status: 'edits_requested',
+        error_message: 'You have been allowed to resubmit. Please update your content and resubmit.',
+      })
+      .eq('id', studentId)
+
+    if (error) throw error
+
+    return { 
+      success: true,
+      requiresPayment: !!student.refund_id // If refunded, student needs to pay again
+    }
+  } catch (error) {
+    console.error('Failed to allow resubmission:', error)
+    return { 
+      success: false, 
+      error: 'Failed to allow resubmission' 
     }
   }
 }
@@ -412,12 +501,17 @@ export async function getStats() {
     const { count: pendingSubmissions } = await getSupabaseAdmin()
       .from('students')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'submitted')
+      .in('status', ['submitted', 'edits_requested'])
 
     const { count: deployedSites } = await getSupabaseAdmin()
       .from('students')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'deployed')
+
+    const { count: rejectedStudents } = await getSupabaseAdmin()
+      .from('students')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'rejected')
 
     const { count: queuedDeployments } = await getSupabaseAdmin()
       .from('deployment_queue')
@@ -433,6 +527,7 @@ export async function getStats() {
       totalStudents: totalStudents || 0,
       pendingSubmissions: pendingSubmissions || 0,
       deployedSites: deployedSites || 0,
+      rejectedStudents: rejectedStudents || 0,
       queuedDeployments: queuedDeployments || 0,
       pendingChanges: pendingChanges || 0
     }
@@ -442,6 +537,7 @@ export async function getStats() {
       totalStudents: 0,
       pendingSubmissions: 0,
       deployedSites: 0,
+      rejectedStudents: 0,
       queuedDeployments: 0,
       pendingChanges: 0
     }

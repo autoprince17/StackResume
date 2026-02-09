@@ -58,6 +58,11 @@ export async function processDeployment(studentId: string) {
     throw new Error('Student not found')
   }
 
+  // Status guard: don't deploy rejected or edits_requested students
+  if (student.status === 'rejected' || student.status === 'edits_requested') {
+    throw new Error(`Cannot deploy student with status "${student.status}"`)
+  }
+
   // 2. Fetch all related data
   const [
     { data: profileData }, 
@@ -231,7 +236,7 @@ async function deployToVercel({
 export async function retryFailedDeployments() {
   const { data: failedDeployments } = await getSupabaseAdmin()
     .from('deployment_queue')
-    .select('*')
+    .select('*, students(status)')
     .eq('status', 'failed')
     .lt('retry_count', 2)
 
@@ -239,7 +244,20 @@ export async function retryFailedDeployments() {
     return { retried: 0 }
   }
 
+  let retriedCount = 0
+
   for (const deployment of failedDeployments as any[]) {
+    // Skip deployments for rejected students or those with rejection-related errors
+    const studentStatus = deployment.students?.status
+    if (studentStatus === 'rejected' || studentStatus === 'edits_requested') {
+      continue
+    }
+
+    const errorMsg = deployment.error_message?.toLowerCase() || ''
+    if (errorMsg.includes('rejected') || errorMsg.includes('refunded')) {
+      continue
+    }
+
     // Reset to queued for retry
     await (getSupabaseAdmin() as any)
       .from('deployment_queue')
@@ -248,7 +266,72 @@ export async function retryFailedDeployments() {
         error_message: null
       })
       .eq('id', deployment.id)
+
+    retriedCount++
   }
 
-  return { retried: failedDeployments.length }
+  return { retried: retriedCount }
+}
+
+export async function undeployStudent(studentId: string) {
+  const config = {
+    vercelToken: process.env.VERCEL_TOKEN!,
+    teamId: process.env.VERCEL_TEAM_ID
+  }
+
+  try {
+    // Get student subdomain for project name
+    const { data: studentData } = await getSupabaseAdmin()
+      .from('students')
+      .select('subdomain')
+      .eq('id', studentId)
+      .single()
+
+    const student = studentData as any
+    if (!student?.subdomain) {
+      console.warn(`No subdomain found for student ${studentId}, skipping Vercel cleanup`)
+      return { success: true }
+    }
+
+    const projectName = `stackresume-${student.subdomain}`
+
+    // Delete Vercel project (this removes the deployment and domain aliases)
+    const deleteRes = await fetch(`https://api.vercel.com/v10/projects/${projectName}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${config.vercelToken}`,
+      },
+    })
+
+    if (!deleteRes.ok && deleteRes.status !== 404) {
+      const errorText = await deleteRes.text()
+      console.error(`Failed to delete Vercel project ${projectName}:`, errorText)
+      // Don't throw — best-effort cleanup
+    } else {
+      console.log(`Vercel project ${projectName} deleted`)
+    }
+
+    // Clean up Supabase Storage files
+    const { data: files } = await getSupabaseAdmin()
+      .storage
+      .from('student-assets')
+      .list(`${studentId}`)
+
+    if (files && files.length > 0) {
+      const filePaths = files.map(f => `${studentId}/${f.name}`)
+      await getSupabaseAdmin()
+        .storage
+        .from('student-assets')
+        .remove(filePaths)
+      console.log(`Cleaned up ${filePaths.length} storage files for student ${studentId}`)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error(`Undeploy failed for student ${studentId}:`, error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    }
+  }
 }

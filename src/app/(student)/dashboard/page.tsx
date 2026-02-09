@@ -224,6 +224,20 @@ export default function StudentDashboardPage() {
           color: 'text-amber-600',
           bgColor: 'bg-amber-50'
         }
+      case 'rejected':
+        return {
+          icon: <AlertCircle className="w-6 h-6 text-red-600" />,
+          text: 'Rejected',
+          color: 'text-red-600',
+          bgColor: 'bg-red-50'
+        }
+      case 'edits_requested':
+        return {
+          icon: <FileEdit className="w-6 h-6 text-amber-600" />,
+          text: 'Edits Requested',
+          color: 'text-amber-600',
+          bgColor: 'bg-amber-50'
+        }
       case 'error':
         return {
           icon: <AlertCircle className="w-6 h-6 text-red-600" />,
@@ -238,6 +252,25 @@ export default function StudentDashboardPage() {
           color: 'text-slate-600',
           bgColor: 'bg-slate-50'
         }
+    }
+  }
+
+  const getStatusSubtitle = (student: any) => {
+    switch (student.status) {
+      case 'deployed':
+        return 'Your portfolio is live and ready to share'
+      case 'approved':
+        return 'Your portfolio is being built'
+      case 'submitted':
+        return 'We are reviewing your submission'
+      case 'rejected':
+        return 'Your submission was not approved'
+      case 'edits_requested':
+        return 'Please update your submission based on our feedback'
+      case 'error':
+        return 'There was an issue with your submission'
+      default:
+        return 'We are reviewing your submission'
     }
   }
 
@@ -310,12 +343,7 @@ export default function StudentDashboardPage() {
                       {getStatusDisplay(studentData.student.status).text}
                     </p>
                     <p className="text-sm text-slate-600">
-                      {studentData.student.status === 'deployed' 
-                        ? 'Your portfolio is live and ready to share'
-                        : studentData.student.status === 'approved'
-                        ? 'Your portfolio is being built'
-                        : 'We are reviewing your submission'
-                      }
+                      {getStatusSubtitle(studentData.student)}
                     </p>
                   </div>
                 </div>
@@ -332,6 +360,49 @@ export default function StudentDashboardPage() {
                     View Your Portfolio
                     <ExternalLink className="w-4 h-4 ml-2" />
                   </a>
+                </div>
+              )}
+
+              {/* Rejection details */}
+              {studentData.student.status === 'rejected' && (
+                <div className="mt-6 space-y-4">
+                  {studentData.student.rejection_reason && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm font-medium text-red-900 mb-1">Reason</p>
+                      <p className="text-sm text-red-800">{studentData.student.rejection_reason}</p>
+                    </div>
+                  )}
+                  {studentData.student.refund_id && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        A refund has been issued. It may take 5-10 business days to appear on your statement.
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-sm text-slate-600">
+                    If you believe this was a mistake or would like to resubmit, please contact us at{' '}
+                    <a href="mailto:hello@stackresume.com" className="text-slate-900 underline">hello@stackresume.com</a>.
+                  </p>
+                </div>
+              )}
+
+              {/* Edits requested details */}
+              {studentData.student.status === 'edits_requested' && (
+                <div className="mt-6 space-y-4">
+                  {studentData.student.error_message && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm font-medium text-amber-900 mb-1">What to update</p>
+                      <p className="text-sm text-amber-800 whitespace-pre-line">
+                        {studentData.student.error_message.replace('Edits requested: ', '')}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-sm text-slate-600">
+                    Please update your content based on the feedback above and resubmit. 
+                    Contact us at{' '}
+                    <a href="mailto:hello@stackresume.com" className="text-slate-900 underline">hello@stackresume.com</a>
+                    {' '}if you have questions.
+                  </p>
                 </div>
               )}
             </div>
