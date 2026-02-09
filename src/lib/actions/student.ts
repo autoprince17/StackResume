@@ -147,6 +147,20 @@ export async function submitOnboardingForm(
       }
     }
 
+    // Check for existing student with the same email
+    const { data: existingEmail } = await (getSupabaseAdmin() as any)
+      .from('students')
+      .select('id, status')
+      .eq('email', data.personalInfo.email)
+      .maybeSingle()
+
+    if (existingEmail) {
+      return {
+        success: false,
+        error: 'A portfolio with this email already exists. Please check your dashboard or use a different email address.'
+      }
+    }
+
     // Generate student ID
     const studentId = uuidv4()
     const subdomain = await getUniqueSubdomain(data.personalInfo.name)
@@ -290,8 +304,23 @@ export async function submitOnboardingForm(
       subdomain
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Form submission failed:', error)
+
+    // Surface specific database constraint errors
+    if (error?.code === '23505') {
+      if (error.details?.includes('email')) {
+        return {
+          success: false,
+          error: 'A portfolio with this email already exists. Please check your dashboard or use a different email address.'
+        }
+      }
+      return {
+        success: false,
+        error: 'A duplicate record was detected. If you already submitted, check your dashboard.'
+      }
+    }
+
     return {
       success: false,
       error: 'Failed to submit form. Please try again.'
