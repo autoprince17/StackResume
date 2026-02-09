@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processDeploymentQueue, retryFailedDeployments } from '@/lib/deployment'
 import { getCronSecret } from '@/lib/env'
+import { isAdmin } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
-  // Require authorization — either CRON_SECRET bearer token or valid admin session
+  // Allow access via CRON_SECRET bearer token (cron jobs) or valid admin session (manual UI)
   const authHeader = req.headers.get('authorization')
   const cronSecret = getCronSecret()
-  
-  if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const hasCronToken = authHeader === `Bearer ${cronSecret}`
+
+  if (!hasCronToken) {
+    // Fall back to admin session check for manual deployments from the admin UI
+    const admin = await isAdmin()
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const body = await req.json().catch(() => ({}))
